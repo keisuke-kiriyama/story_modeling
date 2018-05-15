@@ -12,6 +12,8 @@
     - extractor
         - new_pseudonym_extractor.py
             - 新字新仮名の書籍情報の抽出
+        - add_length_new_pseudonym_file.py
+            - list_new_pseudonym.csvのデータに各テキストの文字数のカラムを追加するスクリプト
     - util
         - ユーティリティ
 - temp
@@ -95,7 +97,7 @@
 - XHTML/HTMLファイル修正回数
 ### list_person_all_extended_utf8.csv
 - list_person_all_extended.csvのutf8
-### list_new_pserudonym.csv
+### list_new_pseudonym.csv
 #### 新字新仮名の文献
 - 作品ID
 - 作品名
@@ -108,3 +110,5 @@
 - 名読み
 - テキストファイルURL
 - XHTML/HTMLファイルURL
+### list_new_pseudonym_with_count.csv
+#### list_new_pseudonym.csvに各テキストの文字数のカラムを追加
