@@ -86,3 +86,16 @@
 - XHTML/HTMLファイル修正回数
 ### list_person_all_extended_utf8.csv
 - list_person_all_extended.csvのutf8
+### list_new_pserudonym.csv
+#### 新字新仮名の文献
+- 作品ID
+- 作品名
+- 作品名読み
+- 文字遣い種別
+- 人物ID
+- 姓
+- 名
+- 姓読み
+- 名読み
+- テキストファイルURL
+- XHTML/HTMLファイルURL
