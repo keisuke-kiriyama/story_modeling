@@ -4,11 +4,20 @@
 - data
     - データを格納
 - src
+    - downloader
+        - text_downloader.py
+            - URLからテキストをダウンロード
+        - new_pseudonym_text_downloader.py
+            - 新字新仮名の書籍のテキストをダウンロード
     - extractor
         - new_pseudonym_extractor.py
-            - 新字新仮名の書籍の抽出
+            - 新字新仮名の書籍情報の抽出
     - util
         - ユーティリティ
+- temp
+    - log
+        - new_pseudonym_text_download_error.log
+            - src/downloader/new_pseudonym_text_downloader.pyのエラーログ
 
 ## データ
 ### list_person_all.csv
