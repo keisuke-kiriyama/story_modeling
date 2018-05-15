@@ -28,7 +28,7 @@
 - 校正に使用した版
 ### list_person_all_utf8.csv
 - list_person_all.csvのutf8
-### list_person_all_extendec.csv
+### list_person_all_extended.csv
 - 作品ID
 - 作品名
 - 作品名読み
@@ -84,3 +84,5 @@
 - XHTML/HTMLファイル符号化方式
 - XHTML/HTMLファイル文字集合
 - XHTML/HTMLファイル修正回数
+### list_person_all_extended_utf8.csv
+- list_person_all_extended.csvのutf8
