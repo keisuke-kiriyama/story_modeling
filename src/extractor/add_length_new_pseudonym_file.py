@@ -22,7 +22,7 @@ def add_text_length(lines):
         try:
             with open(text_file_path, 'r', encoding='shift-jis') as text_file:
                 splited_line = line.strip().split(',')
-                splited_line.append(str(len(text_file.read())) + '\n')
+                splited_line.append(len(text_file.read()))
                 writer = csv.writer(output_file, lineterminator='\n')
                 writer.writerow(splited_line)
         except:
