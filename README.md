@@ -20,6 +20,8 @@
     - log
         - new_pseudonym_text_download_error.log
             - src/downloader/new_pseudonym_text_downloader.pyのエラーログ
+    - temp_data
+        - 仮のデータ等を格納
 
 ## データ
 ### list_person_all.csv
