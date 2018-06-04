@@ -22,6 +22,9 @@ pip install -r requirements.txt
     - pre_processing
         - remove_seudonym_reading.py
             - 本文を抽出し、読み仮名や注釈削除する前処理
+    - text_tiling
+        - text_tiling.py
+            - テキストタイリングアルゴリズム
     - util
         - ユーティリティ
 - temp
