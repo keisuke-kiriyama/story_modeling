@@ -21,7 +21,9 @@
         - new_pseudonym_text_download_error.log
             - src/downloader/new_pseudonym_text_downloader.pyのエラーログ
     - temp_data
-        - 仮のデータ等を格納
+        - 一時的に使用するデータ等を格納
+    - temp_src
+        - 仮のコード
 
 ## データ
 ### list_person_all.csv
