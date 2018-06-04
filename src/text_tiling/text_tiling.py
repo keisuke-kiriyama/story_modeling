@@ -33,6 +33,12 @@ class TextTiling:
         length = len(words)
         return [words[i:i + self.token_size] for i in range(0, length, self.token_size)]
 
+    def talken_vectorization(self, list):
+        vector = {}
+        for word in list:
+            vector[word] = vector.get(word, 0) + 1
+        return vector
+
     def compare_adjacent_blocks(self):
         for i in range(len(self.tokens)):
             if i == 0:
@@ -67,11 +73,17 @@ class TextTiling:
                     right_top = r
             self.deep_score_by_adjacent_blocks.append((left_top - lexical_score) + (right_top - lexical_score))
 
-    def talken_vectorization(self, list):
-        vector = {}
-        for word in list:
-            vector[word] = vector.get(word, 0) + 1
-        return vector
+    def smoothing(self, window_size, repeat):
+        width = int(window_size/2)
+        for _ in range(repeat):
+            for i, deep_score in enumerate(self.deep_score_by_adjacent_blocks):
+                try:
+                    left_score = self.deep_score_by_adjacent_blocks[i - width]
+                    right_score = self.deep_score_by_adjacent_blocks[i + width]
+                    self.deep_score_by_adjacent_blocks[i] = (left_score + deep_score + right_score) / 3
+                except:
+                    pass
+
 
     def visualization(self, value_sequence):
         x_axis = np.arange(len(value_sequence))
@@ -83,4 +95,5 @@ if __name__ == '__main__':
     text_tiling = TextTiling(input_file_path=input_file_path)
     text_tiling.compare_adjacent_blocks()
     text_tiling.determinig_deep_score_by_adjacent_blocks()
-    text_tiling.visualization(text_tiling.deep_score_by_adjacent_blocks)
+    text_tiling.smoothing(window_size=2,repeat=2)
+    text_tiling.visualization(value_sequence=text_tiling.deep_score_by_adjacent_blocks)
