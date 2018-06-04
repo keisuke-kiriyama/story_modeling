@@ -1,5 +1,10 @@
 # Story Modeling
 
+## セットアップ
+```
+pip install -r requirements.txt
+```
+
 ## ディレクトリ構造
 - data
     - データを格納
