@@ -14,6 +14,9 @@
             - 新字新仮名の書籍情報の抽出
         - add_length_new_pseudonym_file.py
             - list_new_pseudonym.csvのデータに各テキストの文字数のカラムを追加するスクリプト
+    - pre_processing
+        - remove_seudonym_reading.py
+            - 本文を抽出し、読み仮名や注釈削除する前処理
     - util
         - ユーティリティ
 - temp
