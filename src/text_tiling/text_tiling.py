@@ -5,11 +5,13 @@ import math
 from functools import reduce
 import MeCab
 import numpy as np
+from statistics import mean, stdev
 from matplotlib import pyplot
 from src.util import settings
 from src.pre_processing.remove_pseudonym_reading import remove_pseudonym_reading
 
 class TextTiling:
+
     def __init__(self, input_file_path):
         file = open(input_file_path, 'r', encoding='shift-jis')
         text = file.read()
@@ -17,8 +19,9 @@ class TextTiling:
         self.title = splited_text[0]
         self.author = splited_text[1]
         self.body = remove_pseudonym_reading(text)
-        self.token_size = 10
-        self.tokens = self.word_talkenize()
+        self.token_size = 20
+        # self.tokens = self.word_tokenize()
+        self.tokens = self.word_tokenize_by_sentence()
         self.block_size = 2
         self.lexical_score_by_adjacent_blocks = []
         self.lexical_score_by_vocabulary_introductions = []
@@ -26,12 +29,18 @@ class TextTiling:
         self.deep_score_by_adjacent_blocks = []
         self.deep_score_by_vocabulary_introductions = []
         self.deep_score_by_lexical_chain = []
+        self.token_scene_comb = []
 
-    def word_talkenize(self):
+    def word_tokenize(self):
         tagger = MeCab.Tagger('-Owakati')
         words = tagger.parse(self.body).split()
         length = len(words)
         return [words[i:i + self.token_size] for i in range(0, length, self.token_size)]
+
+    def word_tokenize_by_sentence(self):
+        sentences = self.body.split('。')
+        tagger = MeCab.Tagger('-Owakati')
+        return list(map(lambda x: tagger.parse(x).split(), sentences))
 
     def talken_vectorization(self, list):
         vector = {}
@@ -41,23 +50,26 @@ class TextTiling:
 
     def compare_adjacent_blocks(self):
         for i in range(len(self.tokens)):
-            if i == 0:
+            if i == 0 or i == len(self.tokens):
                 self.lexical_score_by_adjacent_blocks.append(0)
                 continue
-            if i == 1:
+            elif i == 1:
                 first_block = self.tokens[0]
+                second_block = reduce(lambda x, y: x + y, self.tokens[i: i + self.block_size], [])
+            elif i == len(self.tokens) - 1:
+                first_block = reduce(lambda x, y: x + y, self.tokens[i - self.block_size : i], [])
+                second_block = self.tokens[len(self.tokens) - 1]
             else:
                 first_block = reduce(lambda x, y: x + y, self.tokens[i - self.block_size : i], [])
-            second_block = reduce(lambda x, y: x + y, self.tokens[i : i + self.block_size], [])
+                second_block = reduce(lambda x, y: x + y, self.tokens[i : i + self.block_size], [])
             first_block_vector = self.talken_vectorization(first_block)
             second_block_vector = self.talken_vectorization(second_block)
             score = 0
             first_block_vector_size = 0
-            second_block_vector_size = 0
             for key, value in first_block_vector.items():
                 score += value * second_block_vector.get(key, 0)
                 first_block_vector_size += value ** 2
-                second_block_vector_size += second_block_vector.get(key, 0) ** 2
+            second_block_vector_size = reduce(lambda x,y: x + y, second_block_vector.values())
             lexical_score = float(score) / math.sqrt(first_block_vector_size * second_block_vector_size)
             self.lexical_score_by_adjacent_blocks.append(lexical_score)
 
@@ -84,11 +96,22 @@ class TextTiling:
                 except:
                     pass
 
+    def boundary_identification(self):
+        average = mean(self.deep_score_by_adjacent_blocks)
+        st_dev = stdev(self.deep_score_by_adjacent_blocks)
+        threshold = average - st_dev/2
+        scene_number = 0
+        for i, deep_score in enumerate(self.deep_score_by_adjacent_blocks):
+            if deep_score > threshold:
+                scene_number += 1
+            self.token_scene_comb.append([''.join(self.tokens[i]), scene_number])
+
 
     def visualization(self, value_sequence):
         x_axis = np.arange(len(value_sequence))
         pyplot.plot(x_axis, value_sequence)
         pyplot.show()
+
 
 if __name__ == '__main__':
     input_file_path = os.path.join(settings.TEMP_DATA_PATH, 'neboke.txt')
@@ -96,4 +119,7 @@ if __name__ == '__main__':
     text_tiling.compare_adjacent_blocks()
     text_tiling.determinig_deep_score_by_adjacent_blocks()
     text_tiling.smoothing(window_size=2,repeat=2)
-    text_tiling.visualization(value_sequence=text_tiling.deep_score_by_adjacent_blocks)
+    text_tiling.boundary_identification()
+    for line in text_tiling.token_scene_comb:
+        print(line)
+    # text_tiling.visualization(value_sequence=text_tiling.deep_score_by_adjacent_blocks)
