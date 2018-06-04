@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import math
 from functools import reduce
 import MeCab
 from src.util import settings
@@ -15,35 +16,55 @@ class TextTiling:
         self.title = splited_text[0]
         self.author = splited_text[1]
         self.body = remove_pseudonym_reading(text)
-        self.talken_size = 10
-        self.talkens = self.word_talkenize()
+        self.token_size = 10
+        self.tokens = self.word_talkenize()
         self.block_size = 2
         self.lexical_score_by_adjacent_blocks = []
         self.lexical_score_by_vocabulary_introductions = []
         self.lexical_score_by_lexical_chain = []
+        self.deep_score_by_adjacent_blocks = []
+        self.deep_score_by_vocabulary_introductions = []
+        self.deep_score_by_lexical_chain = []
 
     def word_talkenize(self):
         tagger = MeCab.Tagger('-Owakati')
         words = tagger.parse(self.body).split()
         length = len(words)
-        return [words[i:i + self.talken_size] for i in range(0, length, self.talken_size)]
+        return [words[i:i + self.token_size] for i in range(0, length, self.token_size)]
 
     def compare_adjacent_blocks(self):
-        for i in range(len(self.talkens)):
+        for i in range(len(self.tokens)):
             if i == 0:
                 self.lexical_score_by_adjacent_blocks.append(0)
                 continue
             if i == 1:
-                first_block = self.talkens[0]
+                first_block = self.tokens[0]
             else:
-                first_block = reduce(lambda x, y: x + y, self.talkens[i - self.block_size : i], [])
-            second_block = reduce(lambda x, y: x + y, self.talkens[i : i + self.block_size], [])
+                first_block = reduce(lambda x, y: x + y, self.tokens[i - self.block_size : i], [])
+            second_block = reduce(lambda x, y: x + y, self.tokens[i : i + self.block_size], [])
             first_block_vector = self.talken_vectorization(first_block)
             second_block_vector = self.talken_vectorization(second_block)
             score = 0
+            first_block_vector_size = 0
+            second_block_vector_size = 0
             for key, value in first_block_vector.items():
                 score += value * second_block_vector.get(key, 0)
-            self.lexical_score_by_adjacent_blocks.append(score)
+                first_block_vector_size += value ** 2
+                second_block_vector_size += second_block_vector.get(key, 0) ** 2
+            lexical_score = float(score) / math.sqrt(first_block_vector_size * second_block_vector_size)
+            self.lexical_score_by_adjacent_blocks.append(lexical_score)
+
+    def determinig_deep_score_by_adjacent_blocks(self):
+        for i, lexical_score in enumerate(self.lexical_score_by_adjacent_blocks):
+            left_top = 0
+            right_top = 0
+            for l in self.lexical_score_by_adjacent_blocks[:i]:
+                if l > left_top:
+                    left_top = l
+            for r in self.lexical_score_by_adjacent_blocks[i+1:]:
+                if r > right_top:
+                    right_top = r
+            self.deep_score_by_adjacent_blocks.append((left_top - lexical_score) + (right_top - lexical_score))
 
 
     def talken_vectorization(self, list):
@@ -56,3 +77,4 @@ if __name__ == '__main__':
     input_file_path = os.path.join(settings.TEMP_DATA_PATH, 'neboke.txt')
     text_tiling = TextTiling(input_file_path=input_file_path)
     text_tiling.compare_adjacent_blocks()
+    text_tiling.determinig_deep_score_by_adjacent_blocks()
