@@ -4,9 +4,10 @@ import os
 import math
 from functools import reduce
 import MeCab
+import numpy as np
+from matplotlib import pyplot
 from src.util import settings
 from src.pre_processing.remove_pseudonym_reading import remove_pseudonym_reading
-
 
 class TextTiling:
     def __init__(self, input_file_path):
@@ -66,15 +67,20 @@ class TextTiling:
                     right_top = r
             self.deep_score_by_adjacent_blocks.append((left_top - lexical_score) + (right_top - lexical_score))
 
-
     def talken_vectorization(self, list):
         vector = {}
         for word in list:
             vector[word] = vector.get(word, 0) + 1
         return vector
 
+    def visualization(self, value_sequence):
+        x_axis = np.arange(len(value_sequence))
+        pyplot.plot(x_axis, value_sequence)
+        pyplot.show()
+
 if __name__ == '__main__':
     input_file_path = os.path.join(settings.TEMP_DATA_PATH, 'neboke.txt')
     text_tiling = TextTiling(input_file_path=input_file_path)
     text_tiling.compare_adjacent_blocks()
     text_tiling.determinig_deep_score_by_adjacent_blocks()
+    text_tiling.visualization(text_tiling.deep_score_by_adjacent_blocks)
