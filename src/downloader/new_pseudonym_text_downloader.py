@@ -9,11 +9,11 @@ def download_new_pseudonym_text(lines):
         splited_line = line.split(',')
         id = splited_line[0]
         url = splited_line[9]
-        output_file_path = os.path.join(settings.DATA_DIR_PATH, 'new_pseudonym_texts', str(id))
+        output_file_path = os.path.join(settings.AOZORA_DATA_DIR_PATH, 'new_pseudonym_texts', str(id))
         download_zip(url, output_file_path)
 
 if __name__ == '__main__':
-    list_new_pseudonym_path = os.path.join(settings.DATA_DIR_PATH, 'list_new_pseudonym.csv')
+    list_new_pseudonym_path = os.path.join(settings.AOZORA_DATA_DIR_PATH, 'list_new_pseudonym.csv')
     with open(list_new_pseudonym_path, 'r') as list_new_pseudonym:
         lines = list_new_pseudonym.readlines()
         download_new_pseudonym_text(lines[1:])

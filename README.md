@@ -7,7 +7,10 @@ pip install -r requirements.txt
 
 ## ディレクトリ構造
 - data
-    - データを格納
+    - aozora
+        - 青空文庫関連のデータ
+    - bccwj
+        - BCCWJ関連のデータ
 - src
     - downloader
         - text_downloader.py
@@ -37,7 +40,8 @@ pip install -r requirements.txt
         - 仮のコード
 
 ## データ
-### list_person_all.csv
+### 青空文庫
+#### list_person_all.csv
 - 人物ID
 - 著者名
 - 作品ID
@@ -52,9 +56,9 @@ pip install -r requirements.txt
 - 出版社名
 - 入力に使用した版
 - 校正に使用した版
-### list_person_all_utf8.csv
+#### list_person_all_utf8.csv
 - list_person_all.csvのutf8
-### list_person_all_extended.csv
+#### list_person_all_extended.csv
 - 作品ID
 - 作品名
 - 作品名読み
@@ -110,10 +114,10 @@ pip install -r requirements.txt
 - XHTML/HTMLファイル符号化方式
 - XHTML/HTMLファイル文字集合
 - XHTML/HTMLファイル修正回数
-### list_person_all_extended_utf8.csv
+#### list_person_all_extended_utf8.csv
 - list_person_all_extended.csvのutf8
-### list_new_pseudonym.csv
-#### 新字新仮名の文献
+#### list_new_pseudonym.csv
+##### 新字新仮名の文献
 - 作品ID
 - 作品名
 - 作品名読み
@@ -125,5 +129,5 @@ pip install -r requirements.txt
 - 名読み
 - テキストファイルURL
 - XHTML/HTMLファイルURL
-### list_new_pseudonym_with_count.csv
-#### list_new_pseudonym.csvに各テキストの文字数のカラムを追加
+#### list_new_pseudonym_with_count.csv
+##### list_new_pseudonym.csvに各テキストの文字数のカラムを追加

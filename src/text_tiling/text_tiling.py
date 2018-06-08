@@ -109,7 +109,10 @@ class TextTiling:
 
     def visualization(self, value_sequence):
         x_axis = np.arange(len(value_sequence))
+        pyplot.xlabel("token index")
+        pyplot.ylabel("lexical score")
         pyplot.plot(x_axis, value_sequence)
+        pyplot.axhline(0.31347, ls=':')
         pyplot.show()
 
 
@@ -118,8 +121,8 @@ if __name__ == '__main__':
     text_tiling = TextTiling(input_file_path=input_file_path)
     text_tiling.compare_adjacent_blocks()
     text_tiling.determinig_deep_score_by_adjacent_blocks()
-    text_tiling.smoothing(window_size=2,repeat=2)
+    text_tiling.smoothing(window_size=1,repeat=2)
+    text_tiling.visualization(value_sequence=text_tiling.deep_score_by_adjacent_blocks)
     text_tiling.boundary_identification()
     for line in text_tiling.token_scene_comb:
         print(line)
-    # text_tiling.visualization(value_sequence=text_tiling.deep_score_by_adjacent_blocks)

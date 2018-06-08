@@ -5,8 +5,8 @@ import csv
 from src.util import settings
 
 def add_text_length(lines):
-    new_pseudonym_texts_dir_path = os.path.join(settings.DATA_DIR_PATH, 'new_pseudonym_texts')
-    output_file_path = os.path.join(settings.DATA_DIR_PATH, 'list_new_pseudonym_with_count.csv')
+    new_pseudonym_texts_dir_path = os.path.join(settings.AOZORA_DATA_DIR_PATH, 'new_pseudonym_texts')
+    output_file_path = os.path.join(settings.AOZORA_DATA_DIR_PATH, 'list_new_pseudonym_with_count.csv')
     output_file = open(output_file_path, 'w', encoding='shift_jisx0213')
     directories = os.listdir(new_pseudonym_texts_dir_path)
     for line in lines:
@@ -30,7 +30,7 @@ def add_text_length(lines):
     output_file.close()
 
 if __name__ == '__main__':
-    list_new_pseudonym_path = os.path.join(settings.DATA_DIR_PATH, 'list_new_pseudonym.csv')
+    list_new_pseudonym_path = os.path.join(settings.AOZORA_DATA_DIR_PATH, 'list_new_pseudonym.csv')
     with open(list_new_pseudonym_path, 'r') as list_new_pseudonym:
         lines = list_new_pseudonym.readlines()
         add_text_length(lines)
