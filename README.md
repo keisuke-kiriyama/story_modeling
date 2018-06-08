@@ -12,22 +12,23 @@ pip install -r requirements.txt
     - bccwj
         - BCCWJ関連のデータ
 - src
-    - downloader
-        - text_downloader.py
-            - URLからテキストをダウンロード
-        - new_pseudonym_text_downloader.py
-            - 新字新仮名の書籍のテキストをダウンロード
-    - extractor
-        - new_pseudonym_extractor.py
-            - 新字新仮名の書籍情報の抽出
-        - add_length_new_pseudonym_file.py
-            - list_new_pseudonym.csvのデータに各テキストの文字数のカラムを追加するスクリプト
-    - pre_processing
-        - remove_seudonym_reading.py
-            - 本文を抽出し、読み仮名や注釈削除する前処理
-    - text_tiling
-        - text_tiling.py
-            - テキストタイリングアルゴリズム
+    - aozora
+        - downloader
+            - text_downloader.py
+                - URLからテキストをダウンロード
+            - new_pseudonym_text_downloader.py
+                - 新字新仮名の書籍のテキストをダウンロード
+        - extractor
+            - new_pseudonym_extractor.py
+                - 新字新仮名の書籍情報の抽出
+            - add_length_new_pseudonym_file.py
+                - list_new_pseudonym.csvのデータに各テキストの文字数のカラムを追加するスクリプト
+        - pre_processing
+            - remove_seudonym_reading.py
+                - 本文を抽出し、読み仮名や注釈削除する前処理
+        - text_tiling
+            - text_tiling.py
+                - テキストタイリングアルゴリズム
     - util
         - ユーティリティ
 - temp
