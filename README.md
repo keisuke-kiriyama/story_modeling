@@ -29,6 +29,10 @@ pip install -r requirements.txt
         - text_tiling
             - text_tiling.py
                 - テキストタイリングアルゴリズム
+    - bccwj
+        - extractor
+            - extract_literature.py
+                - PBから文学作品を抽出
     - util
         - ユーティリティ
 - temp
