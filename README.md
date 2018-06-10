@@ -30,9 +30,16 @@ pip install -r requirements.txt
             - text_tiling.py
                 - テキストタイリングアルゴリズム
     - bccwj
+        - evaluator
+            - character_extract_evaluator.py
+                - 登場人物抽出の評価
         - extractor
             - extract_literature.py
                 - PBから文学作品を抽出
+            - create_literature_bibliography.py
+                - 文学のみの参考文献情報リストの作成
+            - extract_persons.py
+                - 登場人物を抽出するスクリプト
     - util
         - ユーティリティ
 - temp
