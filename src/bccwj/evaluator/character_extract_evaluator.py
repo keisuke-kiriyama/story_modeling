@@ -10,26 +10,33 @@ class CharacterExtractEvaluator:
         (mxml_tree, raw_text) = self.text_from_mxml_path(mxml_file_path)
         self.mxml_tree = mxml_tree
         self.raw_text = raw_text
+        self.correct_character_list = []
+        self.expectation_character_list = []
+        self.precision = None
+        self.recall = None
+        self.f_measure = None
+
+    def remove_ruby(self, element):
+        removed_text = "".join([i.text for i in element.findall('ruby') if type(i.text) == str])
+        return removed_text
 
     def text_from_mxml_path(self, mxml_file_path):
         tree = ET.parse(mxml_file_path)
         root = tree.getroot()
         raw_text = ""
-        for suw in root.iter('SUW'):
-            if type(suw.text) == str:
-                raw_text += suw.text
+        for luw in root.iter('LUW'):
+            for suw in luw.findall('SUW'):
+                suw_text = suw.text if not suw.text == None else self.remove_ruby(suw)
+                raw_text += suw_text
         return root, raw_text
 
     def extract_character_name_from_mxml_tree(self):
-        def remove_ruby(element):
-            return "".join([i.text for i in element.findall('ruby')])
-
         character_list = []
         for luw in self.mxml_tree.iter('LUW'):
             if not '名詞-固有名詞-人名' in luw.get('l_pos'): continue
             character_name = {}
             for suw in luw.findall('SUW'):
-                suw_text = suw.text if not suw.text == None else remove_ruby(suw)
+                suw_text = suw.text if not suw.text == None else self.remove_ruby(suw)
                 if suw.get('pos') == '名詞-固有名詞-人名-姓':
                     character_name['family_name'] = suw_text
                 elif suw.get('pos') == '名詞-固有名詞-人名-名':
@@ -150,6 +157,27 @@ def evaluate_character_extraction_with_mecab():
     print('num of f-measure evaluationed: ', evaluation_f_measure_item_count)
     print('cannnot f-measure evaluation count: ', none_f_measure_count)
 
-if __name__ == '__main__':
-    evaluate_character_extraction_with_mecab()
+def character_extract_error_analysis(file_name):
+    mxml_file_path = os.path.join(settings.LITERATURE_DIR_PATH, file_name)
+    character_extracter_evaluator = CharacterExtractEvaluator(mxml_file_path)
+    character_extracter_evaluator.eval_extract_characer()
+    output_dir_path = os.path.join(settings.BCCWJ_ANALYSIS_DIR_PATH, file_name.split('.')[0])
+    if not os.path.exists(output_dir_path): os.mkdir(output_dir_path)
+    correct_character_output_file_path = os.path.join(output_dir_path, 'correct.txt')
+    with open(correct_character_output_file_path, 'w') as f:
+        for character in character_extracter_evaluator.correct_character_list:
+            f.write(str(character) + "\n")
+    morph_output_file_path = os.path.join(output_dir_path, 'morph.txt')
+    m = MeCab.Tagger('-Ochasen')
+    parsed = m.parse(character_extracter_evaluator.raw_text)
+    with open(morph_output_file_path, 'w') as f:
+        for line in parsed.split('\n'):
+            elements = line.split('\t')
+            if not len(elements) == 6: continue
+            morph_pos = elements[0] + " " + elements[3] + "\n"
+            f.write(morph_pos)
 
+
+if __name__ == '__main__':
+    # evaluate_character_extraction_with_mecab()
+    character_extract_error_analysis('PB19_00004.xml')

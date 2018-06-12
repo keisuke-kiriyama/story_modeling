@@ -6,6 +6,9 @@ pip install -r requirements.txt
 ```
 
 ## ディレクトリ構造
+- analysis
+    - bccwj
+        - bccwjの分析結果
 - data
     - aozora
         - 青空文庫関連のデータ
