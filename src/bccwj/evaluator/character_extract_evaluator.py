@@ -48,6 +48,8 @@ class CharacterExtractEvaluator:
             for suw in luw.findall('SUW'):
                 suw_text = suw.text if not suw.text == None else self.remove_ruby(suw)
                 if '名詞-固有名詞-人名' in suw.get('pos'):
+                    if not suw_text in character_list:
+                        character_list.append(suw_text)
                     character_name += suw_text
                 if suw.get('pos') == '名詞-固有名詞-人名-姓':
                     character_name_dict['family_name'] = suw_text
