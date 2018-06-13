@@ -84,8 +84,8 @@ class CharacterExtractEvaluator:
 
     def extract_character_name_with_mecab(self):
         # MeCabを用いて姓名を区別して登場人物名を抽出する
-        # mecab = MeCab.Tagger("-Ochasen")
-        mecab = MeCab.Tagger("-d /usr/local/lib/mecab/dic/mecab-ipadic-neologd")
+        mecab = MeCab.Tagger("-Ochasen")
+        # mecab = MeCab.Tagger("-d /usr/local/lib/mecab/dic/mecab-ipadic-neologd")
         node = mecab.parseToNode(self.raw_text)
         character_list = []
         strict_character_list = []
@@ -117,7 +117,7 @@ class CharacterExtractEvaluator:
 
     def eval_extract_character(self):
         # 姓名の区別をせず登場人物抽出の評価を行う
-        if not self.correct_character_list_flat or not self.expectation_character_list:
+        if not self.correct_character_list_flat or not self.correct_character_list_hierarchy or not self.expectation_character_list:
             self.precision = None
             self.recall = None
             self.f_measure = None
@@ -198,7 +198,7 @@ def evaluate_character_extraction_with_mecab():
             character_extractor_evaluator.eval_extract_character()
             character_extractor_evaluator.strict_eval_extract_character()
             file.write(character_extractor_evaluator.mxml_file_path + '\n')
-            file.write(str(character_extractor_evaluator.correct_character_list_flat) + '\n')
+            file.write(str(character_extractor_evaluator.correct_character_list_hierarchy) + '\n')
             file.write(str(character_extractor_evaluator.expectation_character_list) + '\n\n')
             if character_extractor_evaluator.precision:
                 precisions.append(character_extractor_evaluator.precision)
