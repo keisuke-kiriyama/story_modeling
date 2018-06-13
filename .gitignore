@@ -104,6 +104,9 @@ venv.bak/
 # mypy
 .mypy_cache/
 
+# Analysis
+/analysis/
+
 # Data
 /data/aozora/new_pseudonym_texts/
 /data/bccwj/PB

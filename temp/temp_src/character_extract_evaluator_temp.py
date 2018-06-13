@@ -8,7 +8,7 @@ def wakati(text):
     print(m.parse(text).split())
 
 if __name__ == '__main__':
-    file_path = os.path.join(settings.LITERATURE_DIR_PATH, 'PB19_00003.xml')
+    file_path = os.path.join(settings.LITERATURE_DIR_PATH, 'PB29_00363.xml')
     character_extract_evaluator = CharacterExtractEvaluator(file_path)
     print(character_extract_evaluator.raw_text)
     # wakati(character_extract_evaluator.raw_text)
