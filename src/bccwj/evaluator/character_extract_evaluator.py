@@ -43,25 +43,29 @@ class CharacterExtractEvaluator:
         strict_character_list = []
         for luw in self.mxml_tree.iter('LUW'):
             if not '名詞-固有名詞-人名' in luw.get('l_pos'): continue
-            character_name = {}
+            character_name = ''
+            character_name_dict = {}
             for suw in luw.findall('SUW'):
                 suw_text = suw.text if not suw.text == None else self.remove_ruby(suw)
-                if '名詞-固有名詞-人名' in suw.get('pos') and not suw_text in character_list:
-                    character_list.append(suw_text)
+                if '名詞-固有名詞-人名' in suw.get('pos'):
+                    character_name += suw_text
                 if suw.get('pos') == '名詞-固有名詞-人名-姓':
-                    character_name['family_name'] = suw_text
+                    character_name_dict['family_name'] = suw_text
                 elif suw.get('pos') == '名詞-固有名詞-人名-名':
-                    character_name['given_name'] = suw_text
+                    character_name_dict['given_name'] = suw_text
                 elif suw.get('pos') == '名詞-固有名詞-人名-一般':
-                    character_name['common_name'] = suw_text
-            if not character_name in strict_character_list and character_name:
-                strict_character_list.append(character_name)
+                    character_name_dict['common_name'] = suw_text
+            if not character_name in character_list:
+                character_list.append(character_name)
+            if not character_name_dict in strict_character_list and character_name_dict:
+                strict_character_list.append(character_name_dict)
         self.correct_character_list = character_list
         self.strict_correct_character_list = strict_character_list
 
     def extract_character_name_with_mecab(self):
         # MeCabを用いて姓名を区別して登場人物名を抽出する
-        mecab = MeCab.Tagger("-Ochasen")
+        # mecab = MeCab.Tagger("-Ochasen")
+        mecab = MeCab.Tagger("-d /usr/local/lib/mecab/dic/mecab-ipadic-neologd")
         node = mecab.parseToNode(self.raw_text)
         character_list = []
         strict_character_list = []
@@ -158,74 +162,91 @@ def evaluate_character_extraction_with_mecab():
     strict_recalls = []
     strict_f_measures = []
     items_count = len(mxml_file_paths)
-    for i, mxml_file_path in enumerate(mxml_file_paths):
-        character_extractor_evaluator = CharacterExtractEvaluator(mxml_file_path)
-        character_extractor_evaluator.eval_extract_character()
-        character_extractor_evaluator.strict_eval_extract_character()
-        if character_extractor_evaluator.strict_precision:
-            precisions.append(character_extractor_evaluator.precision)
-            strict_precisions.append(character_extractor_evaluator.strict_precision)
-        if character_extractor_evaluator.strict_recall:
-            recalls.append(character_extractor_evaluator.recall)
-            strict_recalls.append(character_extractor_evaluator.strict_recall)
-        if character_extractor_evaluator.strict_f_measure:
-            f_measures.append(character_extractor_evaluator.f_measure)
-            strict_f_measures.append(character_extractor_evaluator.strict_f_measure)
-        completion_rate = i / items_count
-        print("completion_rate: {:.4f}".format(completion_rate))
-    print('-------------------------------------------')
-    print('Evaluation')
-    precision_mean = mean(precisions)
-    precision_variance = variance(precisions)
-    evaluation_precision_item_count = len(precisions)
-    none_precision_count = items_count - evaluation_precision_item_count
-    print('precision Mean: ', precision_mean)
-    print('precision Variance: ', precision_variance)
-    print('num of precisions evaluationed: ', evaluation_precision_item_count)
-    print('cannnot precisions evaluation count: ', none_precision_count)
-    recall_mean = mean(recalls)
-    recall_variance = variance(recalls)
-    evaluation_recall_item_count = len(recalls)
-    none_recall_count = items_count - evaluation_recall_item_count
-    print('recall Mean: ', recall_mean)
-    print('recall Variance: ', recall_variance)
-    print('num of recall evaluationed: ', evaluation_recall_item_count)
-    print('cannnot recall evaluation count: ', none_recall_count)
-    f_measure_mean = mean(f_measures)
-    f_measure_variance = variance(f_measures)
-    evaluation_f_measure_item_count = len(f_measures)
-    none_f_measure_count = items_count - evaluation_f_measure_item_count
-    print('f-measure Mean: ', f_measure_mean)
-    print('f-measure Variance: ', f_measure_variance)
-    print('num of f-measure evaluationed: ', evaluation_f_measure_item_count)
-    print('cannnot f-measure evaluation count: ', none_f_measure_count)
-    print('-------------------------------------------')
-    print('Strict Evaluation')
-    strict_precision_mean = mean(strict_precisions)
-    strict_precision_variance = variance(strict_precisions)
-    strict_evaluation_precision_item_count = len(strict_precisions)
-    strict_none_precision_count = items_count - strict_evaluation_precision_item_count
-    print('precision Mean: ', strict_precision_mean)
-    print('precision Variance: ', strict_precision_variance)
-    print('num of precisions evaluationed: ', strict_evaluation_precision_item_count)
-    print('cannnot precisions evaluation count: ', strict_none_precision_count)
-    strict_recall_mean = mean(strict_recalls)
-    strict_recall_variance = variance(strict_recalls)
-    strict_evaluation_recall_item_count = len(strict_recalls)
-    strict_none_recall_count = items_count - strict_evaluation_recall_item_count
-    print('recall Mean: ', strict_recall_mean)
-    print('recall Variance: ', strict_recall_variance)
-    print('num of recall evaluationed: ', strict_evaluation_recall_item_count)
-    print('cannnot recall evaluation count: ', strict_none_recall_count)
-    strict_f_measure_mean = mean(strict_f_measures)
-    strict_f_measure_variance = variance(strict_f_measures)
-    strict_evaluation_f_measure_item_count = len(strict_f_measures)
-    strict_none_f_measure_count = items_count - strict_evaluation_f_measure_item_count
-    print('f-measure Mean: ', strict_f_measure_mean)
-    print('f-measure Variance: ', strict_f_measure_variance)
-    print('num of f-measure evaluationed: ', strict_evaluation_f_measure_item_count)
-    print('cannnot f-measure evaluation count: ', strict_none_f_measure_count)
-    print('-------------------------------------------')
+    output_file_path = os.path.join(settings.ANALYSIS_DIR_PATH, 'neolog-d.txt')
+    with open(output_file_path, 'w') as file:
+        for i, mxml_file_path in enumerate(mxml_file_paths):
+            character_extractor_evaluator = CharacterExtractEvaluator(mxml_file_path)
+            character_extractor_evaluator.eval_extract_character()
+            character_extractor_evaluator.strict_eval_extract_character()
+            file.write(character_extractor_evaluator.mxml_file_path + '\n')
+            file.write(str(character_extractor_evaluator.correct_character_list) + '\n')
+            file.write(str(character_extractor_evaluator.expectation_character_list) + '\n\n')
+            if character_extractor_evaluator.precision:
+                precisions.append(character_extractor_evaluator.precision)
+            if character_extractor_evaluator.recall:
+                recalls.append(character_extractor_evaluator.recall)
+            if character_extractor_evaluator.f_measure:
+                f_measures.append(character_extractor_evaluator.f_measure)
+            if character_extractor_evaluator.strict_precision:
+                strict_precisions.append(character_extractor_evaluator.strict_precision)
+            if character_extractor_evaluator.strict_recall:
+                strict_recalls.append(character_extractor_evaluator.strict_recall)
+            if character_extractor_evaluator.strict_f_measure:
+                strict_f_measures.append(character_extractor_evaluator.strict_f_measure)
+            completion_rate = i / items_count
+            print("completion_rate: {:.4f}".format(completion_rate))
+        print('-------------------------------------------')
+        print('Evaluation')
+        precision_mean = mean(precisions)
+        precision_variance = variance(precisions)
+        evaluation_precision_item_count = len(precisions)
+        none_precision_count = items_count - evaluation_precision_item_count
+        print('precision Mean: ', precision_mean)
+        print('precision Variance: ', precision_variance)
+        print('num of precisions evaluationed: ', evaluation_precision_item_count)
+        print('cannnot precisions evaluation count: ', none_precision_count)
+        recall_mean = mean(recalls)
+        recall_variance = variance(recalls)
+        evaluation_recall_item_count = len(recalls)
+        none_recall_count = items_count - evaluation_recall_item_count
+        print('recall Mean: ', recall_mean)
+        print('recall Variance: ', recall_variance)
+        print('num of recall evaluationed: ', evaluation_recall_item_count)
+        print('cannnot recall evaluation count: ', none_recall_count)
+        f_measure_mean = mean(f_measures)
+        f_measure_variance = variance(f_measures)
+        evaluation_f_measure_item_count = len(f_measures)
+        none_f_measure_count = items_count - evaluation_f_measure_item_count
+        print('f-measure Mean: ', f_measure_mean)
+        print('f-measure Variance: ', f_measure_variance)
+        print('num of f-measure evaluationed: ', evaluation_f_measure_item_count)
+        print('cannnot f-measure evaluation count: ', none_f_measure_count)
+        print('-------------------------------------------')
+        print('Strict Evaluation')
+        strict_precision_mean = mean(strict_precisions)
+        strict_precision_variance = variance(strict_precisions)
+        strict_evaluation_precision_item_count = len(strict_precisions)
+        strict_none_precision_count = items_count - strict_evaluation_precision_item_count
+        print('precision Mean: ', strict_precision_mean)
+        print('precision Variance: ', strict_precision_variance)
+        print('num of precisions evaluationed: ', strict_evaluation_precision_item_count)
+        print('cannnot precisions evaluation count: ', strict_none_precision_count)
+        strict_recall_mean = mean(strict_recalls)
+        strict_recall_variance = variance(strict_recalls)
+        strict_evaluation_recall_item_count = len(strict_recalls)
+        strict_none_recall_count = items_count - strict_evaluation_recall_item_count
+        print('recall Mean: ', strict_recall_mean)
+        print('recall Variance: ', strict_recall_variance)
+        print('num of recall evaluationed: ', strict_evaluation_recall_item_count)
+        print('cannnot recall evaluation count: ', strict_none_recall_count)
+        strict_f_measure_mean = mean(strict_f_measures)
+        strict_f_measure_variance = variance(strict_f_measures)
+        strict_evaluation_f_measure_item_count = len(strict_f_measures)
+        strict_none_f_measure_count = items_count - strict_evaluation_f_measure_item_count
+        print('f-measure Mean: ', strict_f_measure_mean)
+        print('f-measure Variance: ', strict_f_measure_variance)
+        print('num of f-measure evaluationed: ', strict_evaluation_f_measure_item_count)
+        print('cannnot f-measure evaluation count: ', strict_none_f_measure_count)
+        print('-------------------------------------------')
+        file.write('-------------------------------------------\n')
+        file.write('Evaluation\n')
+        file.write('precision Mean: ' + str(precision_mean) + '\n')
+        file.write('precision Variance: ' + str(precision_variance) + '\n')
+        file.write('recall Mean: ' + str(recall_mean) + '\n')
+        file.write('recall Variance: ' + str(recall_variance) + '\n')
+        file.write('f-measure Mean: ' + str(f_measure_mean) + '\n')
+        file.write('f-measure Variance: ' + str(f_measure_variance) + '\n')
+
 
 def character_extract_error_analysis(file_name):
     mxml_file_path = os.path.join(settings.LITERATURE_DIR_PATH, file_name)
@@ -264,3 +285,7 @@ def all_file_character_extract_error_anaylysis():
 if __name__ == '__main__':
     evaluate_character_extraction_with_mecab()
     # all_file_character_extract_error_anaylysis()
+
+    # file_path = os.path.join(settings.LITERATURE_DIR_PATH, 'PB39_00045.xml')
+    # extractor = CharacterExtractEvaluator(file_path)
+    # print(extractor.correct_character_list)
