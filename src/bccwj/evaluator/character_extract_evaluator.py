@@ -10,7 +10,8 @@ class CharacterExtractEvaluator:
         (mxml_tree, raw_text) = self.text_from_mxml_path(mxml_file_path)
         self.mxml_tree = mxml_tree
         self.raw_text = raw_text
-        self.correct_character_list = []
+        self.correct_character_list_flat = []
+        self.correct_character_list_hierarchy = []
         self.expectation_character_list = []
         self.strict_correct_character_list = []
         self.strict_expectation_character_list = []
@@ -39,17 +40,20 @@ class CharacterExtractEvaluator:
 
     def extract_character_name_from_mxml_tree(self):
         # mxmlツリーから姓名を区別して登場人物名を抽出する
-        character_list = []
+        character_list_flat = []
+        character_list_hierarychy = []
         strict_character_list = []
         for luw in self.mxml_tree.iter('LUW'):
             if not '名詞-固有名詞-人名' in luw.get('l_pos'): continue
             character_name = ''
+            character_name_list = []
             character_name_dict = {}
             for suw in luw.findall('SUW'):
                 suw_text = suw.text if not suw.text == None else self.remove_ruby(suw)
                 if '名詞-固有名詞-人名' in suw.get('pos'):
-                    if not suw_text in character_list:
-                        character_list.append(suw_text)
+                    if not suw_text in character_list_flat:
+                        character_list_flat.append(suw_text)
+                    character_name_list.append(suw_text)
                     character_name += suw_text
                 if suw.get('pos') == '名詞-固有名詞-人名-姓':
                     character_name_dict['family_name'] = suw_text
@@ -57,12 +61,26 @@ class CharacterExtractEvaluator:
                     character_name_dict['given_name'] = suw_text
                 elif suw.get('pos') == '名詞-固有名詞-人名-一般':
                     character_name_dict['common_name'] = suw_text
-            if not character_name in character_list:
-                character_list.append(character_name)
+            if not character_name in character_list_flat:
+                character_list_flat.append(character_name)
+            if len(character_name_list) > 1:
+                character_name_list.append(('').join(character_name_list))
+            if not character_name_list in character_list_hierarychy and character_name_list:
+                character_list_hierarychy.append(character_name_list)
             if not character_name_dict in strict_character_list and character_name_dict:
                 strict_character_list.append(character_name_dict)
-        self.correct_character_list = character_list
+        self.correct_character_list_flat = character_list_flat
+        self.correct_character_list_hierarchy = self.cleaning_character_list_hierarchy(character_list_hierarychy)
         self.strict_correct_character_list = strict_character_list
+
+    def cleaning_character_list_hierarchy(self, character_list_hierarchy):
+        cleaned_list = []
+        for element in character_list_hierarchy:
+            is_chiled = map(lambda x: set(element).issubset(x) and not element == x, character_list_hierarchy)
+            if not True in is_chiled:
+                cleaned_list.append(element)
+        return cleaned_list
+
 
     def extract_character_name_with_mecab(self):
         # MeCabを用いて姓名を区別して登場人物名を抽出する
@@ -99,22 +117,17 @@ class CharacterExtractEvaluator:
 
     def eval_extract_character(self):
         # 姓名の区別をせず登場人物抽出の評価を行う
-        if not self.correct_character_list or not self.expectation_character_list:
+        if not self.correct_character_list_flat or not self.expectation_character_list:
             self.precision = None
             self.recall = None
             self.f_measure = None
             return
-        tp, fp = self.positive_expectation_eval(self.correct_character_list, self.expectation_character_list)
-        fn = self.negative_expectation_eval(self.correct_character_list, self.expectation_character_list)
-        precision = tp / (tp + fp)
-        recall = tp / (tp + fn)
-        self.precision = precision
-        self.recall = recall
-        if precision + recall == 0:
-            self.strict_f_measure = None
+        self.precision = self.positive_expectation_eval(self.correct_character_list_flat, self.expectation_character_list)
+        self.recall = self.negative_expectation_eval(self.correct_character_list_hierarchy, self.expectation_character_list)
+        if self.precision + self.recall == 0:
+            self.f_measure = None
             return
-
-        f_measure = 2 * precision * recall / (precision + recall)
+        f_measure = 2 * self.precision * self.recall / (self.precision + self.recall)
         self.f_measure = f_measure
 
     def strict_eval_extract_character(self):
@@ -124,16 +137,12 @@ class CharacterExtractEvaluator:
             self.strict_recall = None
             self.strict_f_measure = None
             return
-        tp, fp = self.positive_expectation_eval(self.strict_correct_character_list, self.strict_expectation_character_list)
-        fn = self.negative_expectation_eval(self.strict_correct_character_list, self.strict_expectation_character_list)
-        precision = tp / (tp + fp)
-        recall = tp / (tp + fn)
-        self.strict_precision = precision
-        self.strict_recall = recall
-        if precision + recall == 0:
+        self.strict_precision = self.positive_expectation_eval(self.strict_correct_character_list, self.strict_expectation_character_list)
+        self.strict_recall = self.strict_negative_expectation_eval(self.strict_correct_character_list, self.strict_expectation_character_list)
+        if self.strict_precision + self.strict_recall == 0:
             self.strict_f_measure = None
             return
-        f_measure = 2 * precision * recall / (precision + recall)
+        f_measure = 2 * self.strict_precision * self.strict_recall / (self.strict_precision + self.strict_recall)
         self.strict_f_measure = f_measure
 
     def positive_expectation_eval(self, corrects, expectations):
@@ -144,14 +153,32 @@ class CharacterExtractEvaluator:
                 tp_count += 1
             else:
                 fp_count += 1
-        return tp_count, fp_count
+        precision = tp_count / (tp_count + fp_count)
+        return precision
 
-    def negative_expectation_eval(self, corrects, expectations):
+    def negative_expectation_eval(self, correct_lists, expectations):
+        # negativeの評価の際、正解データは姓名それぞれ追加しているので、
+        # 同一人物判定を導入してから評価を行う
+        tp_count = 0
+        for corrects in correct_lists:
+            for correct in corrects:
+                if correct in expectations:
+                    tp_count += 1
+                    break
+        fn_count = len(correct_lists) - tp_count
+        recall = tp_count / (tp_count + fn_count)
+        return recall
+
+    def strict_negative_expectation_eval(self, corrects, expectations):
+        tp_count = 0.0
         fn_count = 0.0
         for correct in corrects:
-            if correct not in expectations:
+            if correct in expectations:
+                tp_count += 1
+            else:
                 fn_count += 1
-        return fn_count
+        recall = tp_count / (tp_count + fn_count)
+        return recall
 
 
 def evaluate_character_extraction_with_mecab():
@@ -171,7 +198,7 @@ def evaluate_character_extraction_with_mecab():
             character_extractor_evaluator.eval_extract_character()
             character_extractor_evaluator.strict_eval_extract_character()
             file.write(character_extractor_evaluator.mxml_file_path + '\n')
-            file.write(str(character_extractor_evaluator.correct_character_list) + '\n')
+            file.write(str(character_extractor_evaluator.correct_character_list_flat) + '\n')
             file.write(str(character_extractor_evaluator.expectation_character_list) + '\n\n')
             if character_extractor_evaluator.precision:
                 precisions.append(character_extractor_evaluator.precision)
