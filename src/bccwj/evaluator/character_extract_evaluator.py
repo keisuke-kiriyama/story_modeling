@@ -5,6 +5,7 @@ import MeCab
 from src.util import settings
 
 class CharacterExtractEvaluator:
+
     def __init__(self, mxml_file_path):
         self.mxml_file_path = mxml_file_path
         (mxml_tree, raw_text) = self.text_from_mxml_path(mxml_file_path)
@@ -84,8 +85,8 @@ class CharacterExtractEvaluator:
 
     def extract_character_name_with_mecab(self):
         # MeCabを用いて姓名を区別して登場人物名を抽出する
-        mecab = MeCab.Tagger("-Ochasen")
-        # mecab = MeCab.Tagger("-d /usr/local/lib/mecab/dic/mecab-ipadic-neologd")
+        # mecab = MeCab.Tagger("-Ochasen")
+        mecab = MeCab.Tagger("-d /usr/local/lib/mecab/dic/mecab-ipadic-neologd")
         node = mecab.parseToNode(self.raw_text)
         character_list = []
         strict_character_list = []
