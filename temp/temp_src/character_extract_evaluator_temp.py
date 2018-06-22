@@ -1,6 +1,7 @@
 import os
 import MeCab
-from src.util import settings
+# from src.util import settings
+import src.util
 from src.bccwj.evaluator.character_extract_evaluator import CharacterExtractEvaluator
 
 def wakati(text):
@@ -8,7 +9,7 @@ def wakati(text):
     print(m.parse(text).split())
 
 if __name__ == '__main__':
-    file_path = os.path.join(settings.LITERATURE_DIR_PATH, 'PB59_00489.xml')
+    file_path = os.path.join(src.util.settings.LITERATURE_DIR_PATH, 'PB59_00489.xml')
     character_extract_evaluator = CharacterExtractEvaluator(file_path)
     print(character_extract_evaluator.raw_text)
     # character_extract_evaluator.eval_extract_character()
