@@ -14,4 +14,6 @@ NAROU_DATA_DIR_PATH = path.abspath(path.join(DATA_DIR_PATH, 'narou'))
 LITERATURE_DIR_PATH = path.abspath(path.join(BCCWJ_DATA_DIR_PATH, 'Literature'))
 TEMP_DIR_PATH = path.abspath(path.join(PROJECT_ROOT, 'temp'))
 TEMP_DATA_PATH = path.abspath(path.join(TEMP_DIR_PATH, 'temp_data'))
+MODEL_DIR_PATH = path.abspath(path.join(PROJECT_ROOT, 'model'))
+NAROU_MODEL_DIR_PATH = path.abspath(path.join(MODEL_DIR_PATH, 'narou'))
 

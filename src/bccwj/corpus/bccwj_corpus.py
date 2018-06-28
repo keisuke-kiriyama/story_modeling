@@ -70,9 +70,10 @@ def test_embedding():
     for result in results:
         print(result)
 
-
 if __name__ == '__main__':
-    # bccwj_corpus = BCCWJCorpus()
-    # bccwj_corpus.create_wakati_corpus()
+    bccwj_corpus = BCCWJCorpus()
+    bccwj_corpus.create_wakati_corpus()
+    print(bccwj_corpus.wakati_sentences)
     # bccwj_corpus.create_embedding_model(200, 15)
-    test_embedding()
+    # test_embedding()
+

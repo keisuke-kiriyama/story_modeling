@@ -14,6 +14,9 @@ pip install -r requirements.txt
         - 青空文庫関連のデータ
     - bccwj
         - BCCWJ関連のデータ
+- model
+    - narou
+        - 言語モデル等の格納
 - src
     - aozora
         - downloader
