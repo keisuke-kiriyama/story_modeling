@@ -18,7 +18,6 @@ class NarouCorpus:
         self.embedding_window = 15
         self.embedding_min_count = 20
         self.embedding_sg = 0
-        self.data_crensing()
 
     def load(self, file_path):
         json_file = open(file_path, 'r')
@@ -44,7 +43,7 @@ class NarouCorpus:
                 for line in episode:
                     line = self.cleaning(line)
                     wakati_line = self.wakati(line)
-                    wakati_sentences.append(wakati_line)
+                    wakati_sentences.append(wakati_line.split())
         self.wakati_sentences = wakati_sentences
 
     def embedding(self):
@@ -57,7 +56,17 @@ class NarouCorpus:
         model_output_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'narou_embedding.model')
         model.save(model_output_path)
 
+def test_embedding():
+    model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'narou_embedding.model')
+    model = word2vec.Word2Vec.load(model_path)
+    results = model.wv.most_similar(positive=['部屋'])
+    for result in results:
+        print(result)
+
 if __name__ == '__main__':
-    corpus = NarouCorpus()
-    corpus.embedding()
+    # corpus = NarouCorpus()
+    # corpus.data_crensing()
+    # print(corpus.wakati_sentences[3])
+    # corpus.embedding()
+    test_embedding()
 
