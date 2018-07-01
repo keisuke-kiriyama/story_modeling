@@ -11,13 +11,20 @@ class NarouCorpus:
 
     def __init__(self):
         novel_contents_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'contents')
-        print(settings.NAROU_DATA_DIR_PATH)
         self.contents_file_paths = [os.path.join(novel_contents_dir_path, file_name) for file_name in os.listdir(novel_contents_dir_path) if not file_name == '.DS_Store']
+        self.morph_set = set()
+
+        # embedding property
         self.wakati_sentences = None
         self.embedding_size = 200
         self.embedding_window = 15
         self.embedding_min_count = 20
         self.embedding_sg = 0
+
+        # init property
+        # self.data_crensing()
+        self.morph_indices = dict((c, i) for i, c in enumerate(self.morph_set))
+        self.indices_morph = dict((i, c) for i, c in enumerate(self.morph_set))
 
     def load(self, file_path):
         json_file = open(file_path, 'r')
@@ -34,7 +41,28 @@ class NarouCorpus:
         wakati = m.parse(line)
         return wakati
 
+    def contents(self, ncode):
+        file_path = [path for path in self.contents_file_paths if ncode in path]
+        if not len(file_path) == 1:
+            print('invalid ncode')
+            return
+        contents = self.load(file_path[0])['contents']
+        for episode_index in range(len(contents)):
+            for line_index in range(len(contents[episode_index])):
+                contents[episode_index][line_index] = self.cleaning(contents[episode_index][line_index])
+        return contents
+
+    def synopsis(self, ncode):
+        syopsis_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'synopsis')
+        novel_meta_path = os.path.join(syopsis_dir_path, '{}_meta.json'.format(ncode))
+        with open(novel_meta_path, 'r') as f:
+            meta = json.load(f)
+            return meta['story']
+
+
+
     def data_crensing(self):
+        # 分かち書きされた文のリストと、形態素の集合を作成
         wakati_sentences = []
         for i, contents_file_path in enumerate(self.contents_file_paths):
             print('progress: {}'.format(i / len(self.contents_file_paths)))
@@ -42,8 +70,11 @@ class NarouCorpus:
             for episode in contents:
                 for line in episode:
                     line = self.cleaning(line)
-                    wakati_line = self.wakati(line)
-                    wakati_sentences.append(wakati_line.split())
+                    wakati_line = self.wakati(line).split()
+                    for morph in wakati_line:
+                        if not morph in self.morph_set:
+                            self.morph_set.add(morph)
+                    wakati_sentences.append(wakati_line)
         self.wakati_sentences = wakati_sentences
 
     def embedding(self):
@@ -64,9 +95,8 @@ def test_embedding():
         print(result)
 
 if __name__ == '__main__':
-    # corpus = NarouCorpus()
-    # corpus.data_crensing()
-    # print(corpus.wakati_sentences[3])
+    corpus = NarouCorpus()
+    corpus.data_crensing()
     # corpus.embedding()
-    test_embedding()
+    # test_embedding()
 
