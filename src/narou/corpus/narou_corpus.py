@@ -11,7 +11,9 @@ class NarouCorpus:
 
     def __init__(self):
         novel_contents_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'contents')
+        novel_meta_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'meta')
         self.contents_file_paths = [os.path.join(novel_contents_dir_path, file_name) for file_name in os.listdir(novel_contents_dir_path) if not file_name == '.DS_Store']
+        self.meta_file_paths = [os.path.join(novel_meta_dir_path, file_name) for file_name in os.listdir(novel_meta_dir_path) if not file_name == '.DS_Store']
         self.morph_set = set()
 
         # embedding property
@@ -22,7 +24,7 @@ class NarouCorpus:
         self.embedding_sg = 0
 
         # init property
-        # self.data_crensing()
+        self.data_crensing()
         self.morph_indices = dict((c, i) for i, c in enumerate(self.morph_set))
         self.indices_morph = dict((i, c) for i, c in enumerate(self.morph_set))
 
@@ -60,12 +62,11 @@ class NarouCorpus:
             return meta['story']
 
 
-
     def data_crensing(self):
         # 分かち書きされた文のリストと、形態素の集合を作成
         wakati_sentences = []
         for i, contents_file_path in enumerate(self.contents_file_paths):
-            print('progress: {}'.format(i / len(self.contents_file_paths)))
+            print('contents process progress: {}'.format(i / len(self.contents_file_paths)))
             contents = self.load(contents_file_path)['contents']
             for episode in contents:
                 for line in episode:
@@ -76,6 +77,22 @@ class NarouCorpus:
                             self.morph_set.add(morph)
                     wakati_sentences.append(wakati_line)
         self.wakati_sentences = wakati_sentences
+
+        # メタ情報に使われている単語も形態素集合に追加する
+        for i, meta_file_path in enumerate(self.meta_file_paths):
+            print('meta process progress: {}'.format(i / len(self.meta_file_paths)))
+            meta = self.load(meta_file_path)
+            title = meta['title']
+            title_morphs = self.wakati(title).split()
+            synopsis = meta['story']
+            synopsis_morphs = self.wakati(synopsis).split()
+            for title_morph in title_morphs:
+                if not title_morph in self.morph_set:
+                    self.morph_set.add(title_morph)
+            for synopsis_morph in synopsis_morphs:
+                if not synopsis_morph in self.morph_set:
+                    self.morph_set.add(synopsis_morph)
+
 
     def embedding(self):
         logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
@@ -94,9 +111,4 @@ def test_embedding():
     for result in results:
         print(result)
 
-if __name__ == '__main__':
-    corpus = NarouCorpus()
-    corpus.data_crensing()
-    # corpus.embedding()
-    # test_embedding()
 
