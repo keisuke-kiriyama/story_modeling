@@ -52,12 +52,20 @@ def train_emb_idx():
                      batch_size=batch_size,
                      epochs=epochs,
                      validation_data=(X_validation, Y_validation))
-    return hist
+
+    # あらすじ生成
+    prediction = model.predict(X_validation)
+    synopsis = ''
+    for i in prediction[0]:
+        synopsis += " " + corpus.indices_morph[int(i[0] * len(corpus.morph_indices))]
+    print(synopsis)
+
+    return model, hist
 
 
 
 if __name__ == '__main__':
-    hist = train_emb_idx()
+    model, hist = train_emb_idx()
     acc = hist.history['val_acc']
     loss = hist.history['val_loss']
 
