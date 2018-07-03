@@ -12,7 +12,7 @@ from src.narou.corpus.narou_corpus import NarouCorpus
 
 
 
-def train():
+def train_emb_idx():
     corpus = NarouCorpus()
     N = len(corpus.contents_file_paths)
     N_train = int(N * 0.9)
@@ -40,12 +40,12 @@ def train():
 
     model.add(TimeDistributed(Dense(n_out)))
     model.add(Activation('linear'))
-    model.compile(loss='sparse_categorical_crossentropy', # 要検討
+    model.compile(loss='mean_squared_error',
                   optimizer=Adam(lr=0.001, beta_1=0.9, beta_2=0.999),
                   metrics=['accuracy'])
 
     # モデル学習
-    epochs = 200
+    epochs = 30
     batch_size = 5
 
     hist = model.fit(X_train, Y_train,
@@ -57,7 +57,7 @@ def train():
 
 
 if __name__ == '__main__':
-    hist = train()
+    hist = train_emb_idx()
     acc = hist.history['val_acc']
     loss = hist.history['val_loss']
 
