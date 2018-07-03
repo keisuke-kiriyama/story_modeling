@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 from keras.models import Sequential
 from keras.layers.core import Dense, Activation, RepeatVector
 from keras.layers.recurrent import LSTM
@@ -8,6 +9,7 @@ from keras.callbacks import EarlyStopping
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
 from src.narou.corpus.narou_corpus import NarouCorpus
+
 
 
 def train():
@@ -50,13 +52,18 @@ def train():
                      batch_size=batch_size,
                      epochs=epochs,
                      validation_data=(X_validation, Y_validation))
-
-    # for epoch in range(epochs):
-    #     model.fit(X_train, Y_train, batch_size=batch_size, epochs=1,
-    #               validation_data=(X_validation, Y_validation))
     return hist
 
 
 
 if __name__ == '__main__':
-    train()
+    hist = train()
+    acc = hist.history['val_acc']
+    loss = hist.history['val_loss']
+
+    plt.rc('font', family='serif')
+    fig = plt.figure()
+    plt.plot(range(len(loss)), loss,
+             label='loss', color='black')
+    plt.xlabel('epochs')
+    plt.show()
