@@ -101,6 +101,7 @@ class NarouCorpus:
                         if not morph in self.morph_set:
                             self.morph_set.add(morph)
                     wakati_sentences.append(wakati_line)
+        wakati_sentences.append([' '])
         self.wakati_sentences = wakati_sentences
 
         # メタ情報に使われている単語も形態素集合に追加する
@@ -134,18 +135,24 @@ class NarouCorpus:
         # 小説本文をテンソルに変換する
         # shape=(小説数, 単語数, 単語ベクトルサイズ)
         # 1話目のみのテンソルを作成
+        # words_max_length: 使用する単語数
         X = np.zeros((len(self.contents_file_paths), words_max_length, self.embedding_size))
         for novel_index, contents in enumerate([self.contents_from_file_path(contents_file_path) for contents_file_path in self.contents_file_paths]):
-            episode_one = contents[0]
-            for line_index, line in enumerate(episode_one):
-                for morph_index, morph in enumerate(self.wakati(line).split()):
-                    if morph_index == 0:
-                        model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'narou_embedding.model')
-                        model = word2vec.Word2Vec.load(model_path)
-                        print(model.__dict__['wv'][morph])
+            #　分かち書きを揃えるためにlineごとにwakatiを行う
+            episode_one_wakati_lines = [self.cleaning(self.wakati(line)) for line in contents[0]]
+            morphs = ' '.join(episode_one_wakati_lines).split()
+            morphs_to_embed = morphs[0:words_max_length] if len(morphs) > words_max_length else (self.padding(morphs, words_max_length))
+            for morph_index, morph in enumerate(morphs_to_embed):
+                try:
+                    X[novel_index][morph_index] = self.embedding_model.__dict__['wv'][morph]
+                except:
+                    print('[ERROR]error in contents_to_tensor: {}'.format(morph))
+        return X
 
-
-
+    def padding(self, morphs, maxlen):
+        for _ in range(maxlen - len(morphs)):
+            morphs.append(' ')
+        return morphs
 
 def test_embedding():
     model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'narou_embedding.model')
@@ -154,4 +161,7 @@ def test_embedding():
     for result in results:
         print(result)
 
+if __name__ == '__main__':
+    corpus = NarouCorpus()
+    corpus.contents_to_tensor(1000)
 
