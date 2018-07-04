@@ -2,6 +2,8 @@ import os
 import json
 import MeCab
 import logging
+import joblib
+from itertools import chain
 from gensim.models import word2vec
 import numpy as np
 from src.util import settings
@@ -10,27 +12,30 @@ class NarouCorpus:
     # story_modeling/data/narou以下にjsonファイルが
     # 格納されているcontentsディレクトリを用意
 
-    def __init__(self):
+    def __init__(self, is_data_updated=False, is_embed=False, embedding_size = 200):
+        # paths
         novel_contents_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'contents')
         novel_meta_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'meta')
         self.contents_file_paths = [os.path.join(novel_contents_dir_path, file_name) for file_name in os.listdir(novel_contents_dir_path) if not file_name == '.DS_Store']
         self.meta_file_paths = [os.path.join(novel_meta_dir_path, file_name) for file_name in os.listdir(novel_meta_dir_path) if not file_name == '.DS_Store']
-        self.morph_set = set()
+        self.wakati_sentences_file_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'wakati_sentences.txt')
+        self.morph_set_file_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'morph_set.txt')
+        self.embedding_model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'narou_embedding.model')
 
         # embedding property
-        self.wakati_sentences = None
-        self.embedding_size = 200
+        self.wakati_sentences = self.create_wakati_sentences() if is_data_updated else self.load_wakati_sentences()
+        self.embedding_size = embedding_size
         self.embedding_window = 15
         self.embedding_min_count = 0
         self.embedding_sg = 0
 
-        # init property
-        self.data_crensing()
+        # set of morph
+        self.morph_set = self.create_morph_set() if is_data_updated else self.load_morph_set()
         self.morph_indices = dict((c, i) for i, c in enumerate(self.morph_set))
         self.indices_morph = dict((i, c) for i, c in enumerate(self.morph_set))
 
         # embedding
-        self.embedding_model = self.embedding()
+        self.embedding_model = self.embedding() if is_embed else self.load_embedding_model()
 
     def load(self, file_path):
         json_file = open(file_path, 'r')
@@ -84,43 +89,48 @@ class NarouCorpus:
         synopsis = self.cleaning(self.load(file_path)['story'])
         return synopsis
 
-
-    def data_crensing(self):
+    def create_wakati_sentences(self):
         # 分かち書きされた文のリストと、形態素の集合を作成
         wakati_sentences = []
-        self.morph_set.add(' ')
-        self.morph_set.add('eos')
+        wakati_sentences.extend(' ')
+
         for i, contents_file_path in enumerate(self.contents_file_paths):
-            print('contents process progress: {}'.format(i / len(self.contents_file_paths)))
-            contents = self.load(contents_file_path)['contents']
-            for episode in contents:
-                for line in episode:
-                    line = self.cleaning(line)
-                    wakati_line = self.wakati(line).split()
-                    for morph in wakati_line:
-                        if not morph in self.morph_set:
-                            self.morph_set.add(morph)
-                    wakati_sentences.append(wakati_line)
-        wakati_sentences.append([' '])
+            print('contents process progress: {:.3f}'.format(i / len(self.contents_file_paths)))
+            contents = list(chain.from_iterable(self.load(contents_file_path)['contents']))
+            wakati_lines = [self.wakati(self.cleaning(line)).split() for line in contents]
+            wakati_sentences.extend(wakati_lines)
 
         # タイトルとあらすじに使われている形態素を集合に追加
         # あらすじはWord2Vec学習データに追加
         for i, meta_file_path in enumerate(self.meta_file_paths):
             print('meta process progress: {}'.format(i / len(self.meta_file_paths)))
             meta = self.load(meta_file_path)
-            title = meta['title']
-            title_morphs = self.wakati(title).split()
-            for title_morph in title_morphs:
-                if not title_morph in self.morph_set:
-                    self.morph_set.add(title_morph)
             synopsis = meta['story']
-            synopsis_morphs = self.wakati(synopsis).split()
-            wakati_sentences.append(synopsis_morphs)
-            for synopsis_morph in synopsis_morphs:
-                if not synopsis_morph in self.morph_set:
-                    self.morph_set.add(synopsis_morph)
-        self.wakati_sentences = wakati_sentences
+            wakati_synopsis = self.wakati(synopsis).split()
+            wakati_sentences.append(wakati_synopsis)
+        with open(self.wakati_sentences_file_path, 'wb') as f:
+            joblib.dump(wakati_sentences, f, compress=3)
+        return wakati_sentences
 
+    def load_wakati_sentences(self):
+        with open(self.wakati_sentences_file_path, 'rb') as f:
+            return joblib.load(f)
+
+    def create_morph_set(self):
+        morph_set = set()
+        morph_set.add(' ')
+        morph_set.add('eos')
+        for sentence in self.wakati_sentences:
+            for morph in sentence:
+                if not morph in morph_set:
+                    morph_set.add(morph)
+        with open(self.morph_set_file_path, 'wb') as f:
+            joblib.dump(morph_set, f, compress=3)
+        return morph_set
+
+    def load_morph_set(self):
+        with open(self.morph_set_file_path, 'rb') as f:
+            return joblib.load(f)
 
     def embedding(self):
         logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
@@ -129,9 +139,11 @@ class NarouCorpus:
                                   window=self.embedding_window,
                                   min_count=self.embedding_min_count,
                                   sg=self.embedding_sg)
-        model_output_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'narou_embedding.model')
-        model.save(model_output_path)
+        model.save(self.embedding_model_path)
         return model
+
+    def load_embedding_model(self):
+        return word2vec.Word2Vec.load(self.embedding_model_path)
 
     def data_to_tensor_emb_idx(self, contents_length, synopsis_length=300):
         # 小説本文とあらすじのデータをテンソルに変換する

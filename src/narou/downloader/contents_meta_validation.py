@@ -22,6 +22,5 @@ def completion_meta():
             json.dump(meta, f, ensure_ascii=False)
             print(meta)
 
-
 if __name__ == '__main__':
     completion_meta()

@@ -1,9 +1,29 @@
 # Story Modeling
 
-## セットアップ
+## setup
 ```
 pip install -r requirements.txt
 ```
+
+## NarouCorpus
+- 「小説を読もう」https://yomou.syosetu.com/
+### setup
+```
+>>> from narou_corpus import NarouCorpus
+>>> corpus = NarouCorpus(is_data_updated=True, is_embed=True, embedding_size=200)
+```
+- is_data_updated: データをアップデートした際にNarouCorpus.wakati_sentencesとNarouCorpus.morph_setを更新
+- is_embed: embedding_modelの再学習を行うか
+- embedding_size: 単語ベクトルのサイズ
+### 学習データの取得
+- data_to_tensor_emb_idx()
+    - X: 単語の分散ベクトルの系列
+    - Y: あらすじの形態素インデックスの系列
+```
+X, Y = corpus.data_to_tensor_emb_idx(contents_length=contents_length, synopsis_length=synopsis_length)
+```
+- contents_length: 本文の最大単語数
+- synopsis_length: あらすじの最大単語数
 
 ## ディレクトリ構造
 - analysis
