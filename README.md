@@ -46,6 +46,17 @@ pip install -r requirements.txt
                 - 文学のみの参考文献情報リストの作成
             - extract_persons.py
                 - 登場人物を抽出するスクリプト
+    - narou
+        - corpus
+            - narou_corpus.py
+                - 小説を読もうを扱う際のコーパス
+        - downloader
+            - contents_meta_validation.py
+                - 本文あるがあらすじない場合に欠損を補完する
+        - generation
+            - generate_from_morph_index
+                - input: 単語の分散表現
+                - output: あらすじ単語のインデックス
     - util
         - ユーティリティ
 - temp

@@ -45,8 +45,8 @@ def train_emb_idx():
                   metrics=['accuracy'])
 
     # モデル学習
-    epochs = 30
-    batch_size = 5
+    epochs = 100
+    batch_size = 500
 
     hist = model.fit(X_train, Y_train,
                      batch_size=batch_size,

@@ -6,7 +6,7 @@ from time import sleep
 
 from src.util import settings
 
-def fetch_novel_meta_info(n_code, error_log_file):
+def fetch_novel_meta_info(n_code, error_log_file=None):
     url = 'https://api.syosetu.com/novelapi/api/?out=json&gzip=5&of=t-n-u-w-s-bg-g-k-nt-e-ga-l-gp-f-r-a-ah-ka-&lim=1&ncode={}'.format(n_code)
     sleep(3)
     print("fetch: {}".format(url))
@@ -17,7 +17,8 @@ def fetch_novel_meta_info(n_code, error_log_file):
             j_obj = json.loads(j_raw)
             novel_meta = j_obj[1]
     except:
-        error_log_file.write(n_code)
+        if error_log_file:
+            error_log_file.write(n_code)
     return novel_meta
 
 def fetch_novel_meta_from_ncode(ncode_file_path, output_dir_path, error_log_file_path):
