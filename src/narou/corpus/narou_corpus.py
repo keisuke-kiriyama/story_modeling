@@ -12,7 +12,7 @@ class NarouCorpus:
     # story_modeling/data/narou以下にjsonファイルが
     # 格納されているcontentsディレクトリを用意
 
-    def __init__(self, is_data_updated=False, is_embed=False, embedding_size = 200):
+    def __init__(self, is_data_updated=False, is_embed=False, is_tensor_refresh=False, embedding_size=200):
         # paths
         novel_contents_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'contents')
         novel_meta_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'meta')
@@ -21,9 +21,16 @@ class NarouCorpus:
         self.wakati_sentences_file_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'wakati_sentences.txt')
         self.morph_set_file_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'morph_set.txt')
         self.embedding_model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'narou_embedding.model')
+        self.X_tensor_emb_idx_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'X_tensor_emb_idx.txt')
+        self.Y_tensor_emb_idx_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'Y_tensor_emb_idx.txt')
 
         # embedding property
-        self.wakati_sentences = self.create_wakati_sentences() if is_data_updated else self.load_wakati_sentences()
+        if is_data_updated:
+            self.wakati_sentences = self.create_wakati_sentences()
+        elif is_embed:
+            self.wakati_sentences = self.load_wakati_sentences()
+        else:
+            self.wakati_sentences = None
         self.embedding_size = embedding_size
         self.embedding_window = 15
         self.embedding_min_count = 0
@@ -37,6 +44,12 @@ class NarouCorpus:
         # embedding
         self.embedding_model = self.embedding() if is_embed else self.load_embedding_model()
 
+        # training data property
+        self.contents_length = 1000
+        self.synopsis_length = 350
+
+        # data to tensor
+        self.X, self.Y = self.data_to_tensor_emb_idx() if is_tensor_refresh else self.load_tensor_emb_idx()
     def load(self, file_path):
         json_file = open(file_path, 'r')
         contents = json.load(json_file)
@@ -49,7 +62,7 @@ class NarouCorpus:
         return line
 
     def wakati(self, line):
-        m = MeCab.Tagger('-Owakati')
+        m = MeCab.Tagger('-d /usr/local/lib/mecab/dic/mecab-ipadic-neologd -Owakati')
         wakati = m.parse(line)
         return wakati
 
@@ -113,6 +126,7 @@ class NarouCorpus:
         return wakati_sentences
 
     def load_wakati_sentences(self):
+        print('loading wakati_sentences')
         with open(self.wakati_sentences_file_path, 'rb') as f:
             return joblib.load(f)
 
@@ -120,7 +134,8 @@ class NarouCorpus:
         morph_set = set()
         morph_set.add(' ')
         morph_set.add('eos')
-        for sentence in self.wakati_sentences:
+        for i, sentence in enumerate(self.wakati_sentences):
+            print('morph set process progress: {:3f}'.format(i / len(self.wakati_sentences)))
             for morph in sentence:
                 if not morph in morph_set:
                     morph_set.add(morph)
@@ -129,6 +144,7 @@ class NarouCorpus:
         return morph_set
 
     def load_morph_set(self):
+        print('loading morph_set...')
         with open(self.morph_set_file_path, 'rb') as f:
             return joblib.load(f)
 
@@ -143,22 +159,24 @@ class NarouCorpus:
         return model
 
     def load_embedding_model(self):
+        print('loading embedding_model...')
         return word2vec.Word2Vec.load(self.embedding_model_path)
 
-    def data_to_tensor_emb_idx(self, contents_length, synopsis_length=300):
+    def data_to_tensor_emb_idx(self):
         # 小説本文とあらすじのデータをテンソルに変換する
         # 小説本文: shape=(小説数, 単語数, 単語ベクトルサイズ)
         # あらすじ: shape=(小説数, 単語数, 形態素インデックス: 1)
         # words_max_length: 使用する単語数
-        X = np.zeros((len(self.contents_file_paths), contents_length, self.embedding_size), dtype=np.float)
-        Y = np.zeros((len(self.contents_file_paths), synopsis_length, 1), dtype=np.float)
+        X = np.zeros((len(self.contents_file_paths), self.contents_length, self.embedding_size), dtype=np.float)
+        Y = np.zeros((len(self.contents_file_paths), self.synopsis_length, 1), dtype=np.float)
         for novel_index, contents_file_path in enumerate(self.contents_file_paths):
+            print('data to tensor progress: {:3f}'.format(novel_index / len(self.contents_file_paths)))
             contents = self.contents_from_file_path(contents_file_path)
             # 小説本文は1話目のみのテンソルを作成
             # 本文は分かち書きを揃えるためにlineごとにwakatiを行う
             episode_one_wakati_lines = [self.cleaning(self.wakati(line)) for line in contents[0]]
             contents_morphs = ' '.join(episode_one_wakati_lines).split()
-            contents_morphs_to_embed = contents_morphs[0:contents_length] if len(contents_morphs) > contents_length else (self.padding(contents_morphs, contents_length))
+            contents_morphs_to_embed = contents_morphs[0:self.contents_length] if len(contents_morphs) > self.contents_length else self.padding(contents_morphs, self.contents_length)
             for contents_morph_index, contents_morph in enumerate(contents_morphs_to_embed):
                 try:
                     X[novel_index][contents_morph_index] = self.embedding_model.__dict__['wv'][contents_morph]
@@ -170,14 +188,26 @@ class NarouCorpus:
             meta_file_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'meta', ncode + '_meta.json')
             synopsis = self.synopsis_from_file_path(meta_file_path)
             synopsis_morphs = self.wakati(synopsis).split()
-            synopsis_morphs_to_idx = self.padding(synopsis_morphs, synopsis_length)
+            synopsis_morphs_to_idx = synopsis_morphs[0:self.synopsis_length] if len(synopsis_morphs) > self.synopsis_length else self.padding(synopsis_morphs, self.synopsis_length)
             for synopsis_morph_index, synopsis_morph in enumerate(synopsis_morphs_to_idx):
                 try:
                     Y[novel_index][synopsis_morph_index][0] = self.morph_indices[synopsis_morph] / len(self.morph_indices)
-                except:
-                    print('[ERROR]error in synopsis_to_tensor: {}'.format(synopsis_morph))
+                except KeyError:
+                    print('[KEY ERROR]: {}'.format(synopsis_morph))
+        print('saving tensor...')
+        with open(self.X_tensor_emb_idx_path, 'wb') as X_file:
+            joblib.dump(X, X_file, compress=3)
+        with open(self.Y_tensor_emb_idx_path, 'wb') as  Y_file:
+            joblib.dump(Y,Y_file, compress=3)
         return X, Y
 
+    def load_tensor_emb_idx(self):
+        print('loading tensor_emb_idx...')
+        with open(self.X_tensor_emb_idx_path, 'rb') as X_file:
+            X = joblib.load(X_file)
+        with open(self.Y_tensor_emb_idx_path, 'rb') as Y_file:
+            Y = joblib.load(Y_file)
+        return X, Y
 
     def padding(self, morphs, maxlen):
         for _ in range(maxlen - len(morphs)):
@@ -194,4 +224,3 @@ def test_embedding():
 if __name__ == '__main__':
     corpus = NarouCorpus()
     X,Y = corpus.data_to_tensor_emb_idx(1000)
-

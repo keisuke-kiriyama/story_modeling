@@ -17,10 +17,7 @@ def train_emb_idx():
     N = len(corpus.contents_file_paths)
     N_train = int(N * 0.9)
     # N_validation = N - N_train
-    contents_length = 1000
-    synopsis_length = 300
-    X, Y = corpus.data_to_tensor_emb_idx(contents_length=contents_length, synopsis_length=synopsis_length)
-    X_train, X_validation, Y_train, Y_validation = train_test_split(X, Y, train_size = N_train)
+    X_train, X_validation, Y_train, Y_validation = train_test_split(corpus.X, corpus.Y, train_size = N_train)
 
     # モデル設定
     n_in = corpus.embedding_size
@@ -31,11 +28,11 @@ def train_emb_idx():
 
     # Encoder
 
-    model.add(LSTM(n_hidden, input_shape=(contents_length, n_in)))
+    model.add(LSTM(n_hidden, input_shape=(corpus.contents_length, n_in)))
 
     # Decoder
 
-    model.add(RepeatVector(synopsis_length))
+    model.add(RepeatVector(corpus.synopsis_length))
     model.add(LSTM(n_hidden, return_sequences=True))
 
     model.add(TimeDistributed(Dense(n_out)))
@@ -45,7 +42,7 @@ def train_emb_idx():
                   metrics=['accuracy'])
 
     # モデル学習
-    epochs = 100
+    epochs = 10
     batch_size = 500
 
     hist = model.fit(X_train, Y_train,

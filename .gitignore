@@ -111,3 +111,7 @@ venv.bak/
 /data/aozora/new_pseudonym_texts/
 /data/bccwj/PB
 /data/bccwj/Literature
+/data/narou/
+
+# Model
+/model/narou/
