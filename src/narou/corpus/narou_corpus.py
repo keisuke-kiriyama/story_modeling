@@ -170,7 +170,7 @@ class NarouCorpus:
     def data_to_tensor_emb_idx(self):
         # 小説本文とあらすじのデータをテンソルに変換する
         # 小説本文: shape=(小説数, 単語数, 単語ベクトルサイズ)
-        # あらすじ: shape=(小説数, 単語数, 形態素インデックス: 1)
+        # あらすじ: shape=(小説数, 単語数, 語彙サイズ)
         # words_max_length: 使用する単語数
         X = np.zeros((len(self.contents_file_paths), self.contents_length, self.embedding_size), dtype=np.float)
         Y = np.zeros((len(self.contents_file_paths), self.synopsis_length, self.vocab_size), dtype=np.integer)

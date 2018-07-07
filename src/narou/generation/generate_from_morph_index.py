@@ -16,8 +16,8 @@ def train_emb_idx():
     corpus = NarouCorpus()
     N = len(corpus.contents_file_paths)
     N_train = int(N * 0.9)
-    # N_validation = N - N_train
-    X_train, X_validation, Y_train, Y_validation = train_test_split(corpus.X, corpus.Y, train_size = N_train)
+    N_validation = N - N_train
+    X_train, X_validation, Y_train, Y_validation = train_test_split(corpus.X, corpus.Y, train_size = N_train, test_size=N_validation)
 
     # モデル設定
     n_in = corpus.embedding_size
