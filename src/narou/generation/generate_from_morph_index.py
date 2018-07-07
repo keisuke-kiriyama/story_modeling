@@ -22,7 +22,7 @@ def train_emb_idx():
     # モデル設定
     n_in = corpus.embedding_size
     n_hidden = 128
-    n_out = 1
+    n_out = corpus.vocab_size
 
     model = Sequential()
 
@@ -36,8 +36,8 @@ def train_emb_idx():
     model.add(LSTM(n_hidden, return_sequences=True))
 
     model.add(TimeDistributed(Dense(n_out)))
-    model.add(Activation('linear'))
-    model.compile(loss='mean_squared_error',
+    model.add(Activation('softmax'))
+    model.compile(loss='categorical_crossentropy',
                   optimizer=Adam(lr=0.001, beta_1=0.9, beta_2=0.999),
                   metrics=['accuracy'])
 
@@ -51,11 +51,11 @@ def train_emb_idx():
                      validation_data=(X_validation, Y_validation))
 
     # あらすじ生成
-    prediction = model.predict(X_validation)
-    synopsis = ''
-    for i in prediction[0]:
-        synopsis += " " + corpus.indices_morph[int(i[0] * len(corpus.morph_indices))]
-    print(synopsis)
+    # prediction = model.predict(X_validation)
+    # synopsis = ''
+    # for i in prediction[0]:
+    #     synopsis += " " + corpus.indices_morph[int(i[0] * len(corpus.morph_indices))]
+    # print(synopsis)
 
     return model, hist
 

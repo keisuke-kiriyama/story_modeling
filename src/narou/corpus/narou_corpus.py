@@ -12,7 +12,12 @@ class NarouCorpus:
     # story_modeling/data/narou以下にjsonファイルが
     # 格納されているcontentsディレクトリを用意
 
-    def __init__(self, is_data_updated=False, is_embed=False, is_tensor_refresh=False, embedding_size=200):
+    def __init__(self, is_data_updated=False, is_embed=False, embedding_size=200):
+        # is_data_updated
+        # データがアップデートされた際に、word2vec学習用のwakati_sentencesの構築と形態素の集合構築を行う
+        # is_embed
+        # word2vecのモデルを学習し直す
+
         # paths
         novel_contents_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'contents')
         novel_meta_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'meta')
@@ -21,8 +26,6 @@ class NarouCorpus:
         self.wakati_sentences_file_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'wakati_sentences.txt')
         self.morph_set_file_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'morph_set.txt')
         self.embedding_model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'narou_embedding.model')
-        self.X_tensor_emb_idx_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'X_tensor_emb_idx.txt')
-        self.Y_tensor_emb_idx_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'Y_tensor_emb_idx.txt')
 
         # embedding property
         if is_data_updated:
@@ -40,6 +43,7 @@ class NarouCorpus:
         self.morph_set = self.create_morph_set() if is_data_updated else self.load_morph_set()
         self.morph_indices = dict((c, i) for i, c in enumerate(self.morph_set))
         self.indices_morph = dict((i, c) for i, c in enumerate(self.morph_set))
+        self.vocab_size = len(self.morph_set)
 
         # embedding
         self.embedding_model = self.embedding() if is_embed else self.load_embedding_model()
@@ -49,7 +53,8 @@ class NarouCorpus:
         self.synopsis_length = 350
 
         # data to tensor
-        self.X, self.Y = self.data_to_tensor_emb_idx() if is_tensor_refresh else self.load_tensor_emb_idx()
+        self.X, self.Y = self.data_to_tensor_emb_idx()
+
     def load(self, file_path):
         json_file = open(file_path, 'r')
         contents = json.load(json_file)
@@ -168,7 +173,7 @@ class NarouCorpus:
         # あらすじ: shape=(小説数, 単語数, 形態素インデックス: 1)
         # words_max_length: 使用する単語数
         X = np.zeros((len(self.contents_file_paths), self.contents_length, self.embedding_size), dtype=np.float)
-        Y = np.zeros((len(self.contents_file_paths), self.synopsis_length, 1), dtype=np.float)
+        Y = np.zeros((len(self.contents_file_paths), self.synopsis_length, self.vocab_size), dtype=np.integer)
         for novel_index, contents_file_path in enumerate(self.contents_file_paths):
             print('data to tensor progress: {:3f}'.format(novel_index / len(self.contents_file_paths)))
             contents = self.contents_from_file_path(contents_file_path)
@@ -183,7 +188,7 @@ class NarouCorpus:
                 except:
                     print('[ERROR]error in contents_to_tensor: {}'.format(contents_morph))
 
-            # あらすじは形態素のインデックスによるテンソル
+            # あらすじはOneHotVector
             ncode = contents_file_path.split('/')[-1].split('.')[0]
             meta_file_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'meta', ncode + '_meta.json')
             synopsis = self.synopsis_from_file_path(meta_file_path)
@@ -191,22 +196,9 @@ class NarouCorpus:
             synopsis_morphs_to_idx = synopsis_morphs[0:self.synopsis_length] if len(synopsis_morphs) > self.synopsis_length else self.padding(synopsis_morphs, self.synopsis_length)
             for synopsis_morph_index, synopsis_morph in enumerate(synopsis_morphs_to_idx):
                 try:
-                    Y[novel_index][synopsis_morph_index][0] = self.morph_indices[synopsis_morph] / len(self.morph_indices)
+                    Y[novel_index][synopsis_morph_index][self.morph_indices[synopsis_morph]] = 1
                 except KeyError:
                     print('[KEY ERROR]: {}'.format(synopsis_morph))
-        print('saving tensor...')
-        with open(self.X_tensor_emb_idx_path, 'wb') as X_file:
-            joblib.dump(X, X_file, compress=3)
-        with open(self.Y_tensor_emb_idx_path, 'wb') as  Y_file:
-            joblib.dump(Y,Y_file, compress=3)
-        return X, Y
-
-    def load_tensor_emb_idx(self):
-        print('loading tensor_emb_idx...')
-        with open(self.X_tensor_emb_idx_path, 'rb') as X_file:
-            X = joblib.load(X_file)
-        with open(self.Y_tensor_emb_idx_path, 'rb') as Y_file:
-            Y = joblib.load(Y_file)
         return X, Y
 
     def padding(self, morphs, maxlen):
