@@ -14,6 +14,7 @@ class SynopsisSentenceVerificator:
         self.novel_meta_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'meta')
         self.contents_file_paths = [os.path.join(self.novel_contents_dir_path, file_name) for file_name in os.listdir(self.novel_contents_dir_path) if not file_name == '.DS_Store']
         self.meta_file_paths = [os.path.join(self.novel_meta_dir_path, file_name) for file_name in os.listdir(self.novel_meta_dir_path) if not file_name == '.DS_Store']
+        self.model_output_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'doc2vec.model')
         self.labeled_sentences = None
 
     def create_doc_embedding_model(self):
@@ -33,14 +34,12 @@ class SynopsisSentenceVerificator:
                                           enumerate(wakati_synopsis_lines)]
             labeled_sentences.extend(contents_labeled_sentences + synopsis_labeled_sentences)
         print('start to train')
-        model = Doc2Vec(dm=1, vector_size=300, window=3, min_count=5, workers=4, epochs=200)
+        model = Doc2Vec(dm=0, vector_size=300, window=5, min_count=1, workers=4, epochs=600)
         model.build_vocab(labeled_sentences)
         model.train(labeled_sentences, total_examples=model.corpus_count, epochs=model.epochs)
-        model_output_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'doc2vec.model')
-        model.save(model_output_path)
+        model.save(self.model_output_path)
 
     def verificate_synopsis_sentence_similarity(self):
-        print('loading data...')
         verificate_contents_file_path = self.contents_file_paths[6]
         ncode = self.ncode_from_contents_file_path(verificate_contents_file_path)
         print("verification ncode: {}".format(ncode))
@@ -50,29 +49,23 @@ class SynopsisSentenceVerificator:
         synopsis_lines = re.split('[。？]', synopsis)
         wakati_contents_lines = [self.cleaning(self.wakati(line)).split() for line in contents_lines]
         wakati_synopsis_lines = [self.cleaning(self.wakati(line)).split() for line in synopsis_lines]
-        contents_labeled_sentences = [LabeledSentence(words, tags = [str(i)]) for i, words in enumerate(wakati_contents_lines)]
-        synopsis_labeled_sentences = [LabeledSentence(words, tags=['synopsis_' + str(i)]) for i, words in enumerate(wakati_synopsis_lines)]
-        labeled_sentences = contents_labeled_sentences + synopsis_labeled_sentences
-        self.labeled_sentences = labeled_sentences
-        print('start to train')
-        model = Doc2Vec(dm=1, vector_size=300, window=3, min_count=5, workers=4, epochs=200)
-        model.build_vocab(labeled_sentences)
-        model.train(labeled_sentences, total_examples=model.corpus_count, epochs=model.epochs)
-        model_output_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'doc2vec.model')
-        model.save(model_output_path)
 
-        # あらすじ各文に類似する文を出力
-        for i, synopsis_sentence in enumerate(synopsis_labeled_sentences):
-            print('synopsis sentence {}'.format(i))
-            print(''.join(synopsis_sentence.words))
+        model = Doc2Vec.load(self.model_output_path)
+        for synopsis_idx, synopsis_line in enumerate(wakati_synopsis_lines):
+            similarity_dict = {}
+            for contents_idx, contents_line in enumerate(wakati_contents_lines):
+                similarity_dict[contents_idx] = model.docvecs.similarity_unseen_docs(model,
+                                                                                     synopsis_line,
+                                                                                     contents_line,
+                                                                                     alpha = 1,
+                                                                                     min_alpha=0.0001,
+                                                                                     steps=5)
+            sentence_idx, simirality = max(similarity_dict.items(), key=lambda x: x[1])
             print('-' * 15)
-            similar_sentence = model.docvecs.most_similar(synopsis_sentence.tags, topn=30)
-            similar_tags = [sentence[0] for sentence in similar_sentence]
-            similarity = [sentence[1] for sentence in similar_sentence]
-            sentences = list(filter(lambda sentence: sentence.tags[0] in similar_tags,  self.labeled_sentences))
-            for sentence, similarity in zip(sentences, similarity):
-                print(str(round(similarity, 5)) + ' ' + ''.join(sentence.words))
-            return
+            print('synopsis index: {}'.format(synopsis_idx))
+            print(''.join(wakati_synopsis_lines[synopsis_idx]))
+            print('similarity: {}'.format(simirality))
+            print(''.join(wakati_contents_lines[sentence_idx]))
             print('\n')
         return model
 
@@ -98,5 +91,5 @@ class SynopsisSentenceVerificator:
 
 if __name__ == '__main__':
     verificator = SynopsisSentenceVerificator()
-    # verificator.verificate_synopsis_sentence_similarity()
-    verificator.create_doc_embedding_model()
+    verificator.verificate_synopsis_sentence_similarity()
+    # verificator.create_doc_embedding_model()
