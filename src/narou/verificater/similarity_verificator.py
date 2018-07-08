@@ -48,11 +48,12 @@ class SynopsisSentenceVerificator:
             model.min_alpha = model.alpha
         model.save(self.model_output_path)
 
-    def verificate_synopsis_vector_similarity(self):
-        verificate_contents_file_path = self.contents_file_paths[0]
-        ncode = self.ncode_from_contents_file_path(verificate_contents_file_path)
-        print("verification ncode: {}".format(ncode))
-        verificate_meta_file_path = os.path.join(self.novel_meta_dir_path, ncode+'_meta.json')
+    def verificate_synopsis_vector_similarity(self, ncode):
+        verificate_contents_file_path = os.path.join(self.novel_contents_dir_path, ncode + '.json')
+        verificate_meta_file_path = os.path.join(self.novel_meta_dir_path, ncode + '_meta.json')
+        if not verificate_contents_file_path in self.contents_file_paths or not verificate_meta_file_path in self.meta_file_paths:
+            print('nothing ncode')
+            return
         contents_lines = list(chain.from_iterable(self.load(verificate_contents_file_path)['contents']))
         synopsis = self.load(verificate_meta_file_path)['story']
         synopsis_lines = re.split('[。？]', synopsis)
@@ -102,23 +103,21 @@ class SynopsisSentenceVerificator:
         for synopsis_idx, synopsis_vector in enumerate(synopsis_vectors):
             print('-' * 60)
             print('synopsis index: {}'.format(synopsis_idx))
-            # print(''.join(synopsis_lines[synopsis_idx]))
-            print(removed_synopsis_lines[synopsis_idx])
+            print(self.cleaning(''.join(synopsis_lines[synopsis_idx])) + '\n')
+            # print(removed_synopsis_lines[synopsis_idx])
             sim = {}
             for contens_idx, contents_vector in enumerate(contents_vectors):
                 sim[contens_idx] = self.cos_sim(synopsis_vector, contents_vector)
             for rank in range(show_simirality_rank):
                 sentence_idx, simirality = max(sim.items(), key=lambda x: x[1])
                 print('similarity: {}'.format(simirality))
-                # print(''.join(contents_lines[sentence_idx]))
-                print(removed_contents_lines[sentence_idx])
+                print(''.join(contents_lines[sentence_idx]))
+                # print(removed_contents_lines[sentence_idx])
                 sim.pop(sentence_idx)
             print('\n')
 
     def cos_sim(self, v1, v2):
         return np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
-
-
 
     def remove_stop_word(self, sentence):
         # 文を名詞、形容詞、動詞、副詞のみのリストにする
@@ -129,8 +128,9 @@ class SynopsisSentenceVerificator:
         for morph in morphs:
             splited = re.split('[,\t]', morph)
             if len(splited) < 2: continue
-            if splited[1] in part:
-                removed.append(splited[0])
+            # if splited[1] in part:
+            #     removed.append(splited[0])
+            removed.append(splited[0])
         return removed
 
 
@@ -156,6 +156,6 @@ class SynopsisSentenceVerificator:
 
 if __name__ == '__main__':
     verificator = SynopsisSentenceVerificator()
-    # verificator.verificate_synopsis_vector_similarity()
     # verificator.create_doc_embedding_model()
-    verificator.verificate_synopsis_BoW_simirality('n0002ei')
+    verificator.verificate_synopsis_vector_similarity('n0002ei')
+    # verificator.verificate_synopsis_BoW_simirality('n0013da')
