@@ -20,7 +20,6 @@ class SynopsisSentenceVerificator:
         self.model_output_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'doc2vec.model')
 
 
-
     def ncode_from_contents_file_path(self, file_path):
         return file_path.split('/')[-1].split('.')[0]
 
@@ -36,6 +35,8 @@ class SynopsisSentenceVerificator:
         return wakati
 
     def cos_sim(self, v1, v2):
+        if np.linalg.norm(v1) == 0 or np.linalg.norm(v2) == 0:
+            return 0
         return np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
 
     def create_contents_file_path(self, ncode):
@@ -76,7 +77,8 @@ class SynopsisSentenceVerificator:
         if not contents_file_path in self.contents_file_paths:
             print('nothing ncode')
             return
-        return list(chain.from_iterable(self.load(contents_file_path)['contents']))
+        contents_lines = [line for line in list(chain.from_iterable(self.load(contents_file_path)['contents'])) if not line == '']
+        return contents_lines
 
     def get_synopsis_lines(self, ncode):
         """
@@ -89,8 +91,8 @@ class SynopsisSentenceVerificator:
             print('nothing ncode')
             return
         synopsis = self.load(meta_file_path)['story']
-        return re.split('[。？]', synopsis)
-
+        synopsis_lines = [line for line in re.split('[。？]', synopsis) if not line == '']
+        return synopsis_lines
 
     def get_wakati_lines(self, lines):
         """
