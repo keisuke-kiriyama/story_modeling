@@ -220,10 +220,35 @@ class SynopsisSentenceVerificator:
                 sim.pop(sentence_idx)
             print('\n')
 
-
+    def sim_generate_synopsis_verification(self, ncode, sentence_count):
+        """
+        本文の各文にあらすじ文との類似度の最大値をラベルづけし、
+        上位から数件取得することであらすじらしいものが取得できるかを検証
+        :param ncode: str
+        :param sentence_count: int
+        生成するあらすじの文数
+        """
+        contents_lines = self.get_contents_lines(ncode=ncode)
+        synopsis_lines = self.get_synopsis_lines(ncode=ncode)
+        contents_vectors, synopsis_vectors = self.get_BoW_vectors(contents_lines, synopsis_lines)
+        contents_line_max_simirality = np.array([])
+        for contents_vector in contents_vectors:
+            max_sim = 0
+            for synopsis_vector in synopsis_vectors:
+                sim = self.cos_sim(contents_vector, synopsis_vector)
+                if sim > max_sim:
+                    max_sim = sim
+            contents_line_max_simirality = np.append(contents_line_max_simirality, max_sim)
+        similar_sentence_indexes = np.argpartition(-contents_line_max_simirality,
+                                                   sentence_count)[:sentence_count]
+        appear_ordered = np.sort(similar_sentence_indexes)
+        for sentence_index in appear_ordered:
+            print(contents_lines[sentence_index])
+            print(contents_line_max_simirality[sentence_index])
 
 if __name__ == '__main__':
     verificator = SynopsisSentenceVerificator()
     # verificator.create_doc_embedding_model()
     # verificator.verificate_synopsis_vector_similarity('n0002ei')
-    verificator.verificate_synopsis_BoW_simirality('n9974br')
+    # verificator.verificate_synopsis_BoW_simirality('n9974br')
+    verificator.sim_generate_synopsis_verification('n0013da', 8)
