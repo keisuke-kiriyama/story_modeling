@@ -173,7 +173,7 @@ class NarouCorpus:
         # あらすじ: shape=(小説数, 単語数, 語彙サイズ)
         # words_max_length: 使用する単語数
         X = np.zeros((len(self.contents_file_paths), self.contents_length, self.embedding_size), dtype=np.float)
-        Y = np.zeros((len(self.contents_file_paths), self.synopsis_length, self.vocab_size), dtype=np.integer)
+        Y = np.zeros((len(self.contents_file_paths), self.synopsis_length, 1), dtype=np.integer)
         for novel_index, contents_file_path in enumerate(self.contents_file_paths):
             print('data to tensor progress: {:3f}'.format(novel_index / len(self.contents_file_paths)))
             contents = self.contents_from_file_path(contents_file_path)
@@ -196,7 +196,7 @@ class NarouCorpus:
             synopsis_morphs_to_idx = synopsis_morphs[0:self.synopsis_length] if len(synopsis_morphs) > self.synopsis_length else self.padding(synopsis_morphs, self.synopsis_length)
             for synopsis_morph_index, synopsis_morph in enumerate(synopsis_morphs_to_idx):
                 try:
-                    Y[novel_index][synopsis_morph_index][self.morph_indices[synopsis_morph]] = 1
+                    Y[novel_index][synopsis_morph_index][0] = self.morph_indices[synopsis_morph]
                 except KeyError:
                     print('[KEY ERROR]: {}'.format(synopsis_morph))
         return X, Y

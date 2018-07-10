@@ -99,10 +99,10 @@ class SynopsisSentenceVerificator:
         synopsis_BoW = [vocaburaly.doc2bow(line) for line in removed_synopsis_lines]
         contents_vectors = [np.array(matutils.corpus2dense([bow], num_terms=len(vocaburaly)).T[0]) for bow in contents_BoW]
         synopsis_vectors = [np.array(matutils.corpus2dense([bow], num_terms=len(vocaburaly)).T[0]) for bow in synopsis_BoW]
-        show_simirality_rank = 3
+        show_simirality_rank = 1
         for synopsis_idx, synopsis_vector in enumerate(synopsis_vectors):
             print('-' * 60)
-            print('synopsis index: {}'.format(synopsis_idx))
+            # print('synopsis sentence index: {}'.format(synopsis_idx))
             print(self.cleaning(''.join(synopsis_lines[synopsis_idx])) + '\n')
             # print(removed_synopsis_lines[synopsis_idx])
             sim = {}
@@ -110,7 +110,7 @@ class SynopsisSentenceVerificator:
                 sim[contens_idx] = self.cos_sim(synopsis_vector, contents_vector)
             for rank in range(show_simirality_rank):
                 sentence_idx, simirality = max(sim.items(), key=lambda x: x[1])
-                print('similarity: {}'.format(simirality))
+                print('similarity: {:.3f}'.format(simirality))
                 print(''.join(contents_lines[sentence_idx]))
                 # print(removed_contents_lines[sentence_idx])
                 sim.pop(sentence_idx)
@@ -128,9 +128,9 @@ class SynopsisSentenceVerificator:
         for morph in morphs:
             splited = re.split('[,\t]', morph)
             if len(splited) < 2: continue
-            # if splited[1] in part:
-            #     removed.append(splited[0])
-            removed.append(splited[0])
+            if splited[1] in part:
+                removed.append(splited[0])
+            # removed.append(splited[0])
         return removed
 
 
@@ -157,5 +157,5 @@ class SynopsisSentenceVerificator:
 if __name__ == '__main__':
     verificator = SynopsisSentenceVerificator()
     # verificator.create_doc_embedding_model()
-    verificator.verificate_synopsis_vector_similarity('n0002ei')
-    # verificator.verificate_synopsis_BoW_simirality('n0013da')
+    # verificator.verificate_synopsis_vector_similarity('n0002ei')
+    verificator.verificate_synopsis_BoW_simirality('n9859er')
