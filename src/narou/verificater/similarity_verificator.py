@@ -3,7 +3,6 @@ import json
 from itertools import chain
 import numpy as np
 import re
-import joblib
 import MeCab
 from gensim.models.doc2vec import Doc2Vec
 from gensim.models.doc2vec import LabeledSentence
@@ -19,21 +18,139 @@ class SynopsisSentenceVerificator:
         self.contents_file_paths = [os.path.join(self.novel_contents_dir_path, file_name) for file_name in os.listdir(self.novel_contents_dir_path) if not file_name == '.DS_Store']
         self.meta_file_paths = [os.path.join(self.novel_meta_dir_path, file_name) for file_name in os.listdir(self.novel_meta_dir_path) if not file_name == '.DS_Store']
         self.model_output_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'doc2vec.model')
-        self.labeled_sentences = None
 
-    def create_doc_embedding_model(self, load_labeled_sentences=True):
+
+
+    def ncode_from_contents_file_path(self, file_path):
+        return file_path.split('/')[-1].split('.')[0]
+
+    def load(self, file_path):
+        json_file = open(file_path, 'r')
+        contents = json.load(json_file)
+        json_file.close()
+        return contents
+
+    def wakati(self, line):
+        m = MeCab.Tagger('-d /usr/local/lib/mecab/dic/mecab-ipadic-neologd -Owakati')
+        wakati = m.parse(line)
+        return wakati
+
+    def cos_sim(self, v1, v2):
+        return np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
+
+    def create_contents_file_path(self, ncode):
+        return os.path.join(self.novel_contents_dir_path, ncode + '.json')
+
+    def create_meta_file_path(self, ncode):
+        return os.path.join(self.novel_meta_dir_path, ncode+'_meta.json')
+
+    def cleaning(self, line):
+        line = line.replace('\u3000', '')
+        line = line.replace('\n', '')
+        return line
+
+    def remove_stop_word(self, sentence):
+        """
+        文中の名詞、形容詞、動詞、副詞のリスト
+        :param sentence: str
+        :return: list
+        """
+        part = ['名詞', '動詞', '形容詞', '副詞']
+        m = MeCab.Tagger('-d /usr/local/lib/mecab/dic/mecab-ipadic-neologd')
+        morphs = m.parse(sentence).split('\n')
+        removed = []
+        for morph in morphs:
+            splited = re.split('[,\t]', morph)
+            if len(splited) < 2: continue
+            if splited[1] in part:
+                removed.append(splited[0])
+        return removed
+
+    def get_contents_lines(self, ncode):
+        """
+        本文全文のリストを返却
+        :param contents_file_path: str
+        :return: list
+        """
+        contents_file_path = self.create_contents_file_path(ncode=ncode)
+        if not contents_file_path in self.contents_file_paths:
+            print('nothing ncode')
+            return
+        return list(chain.from_iterable(self.load(contents_file_path)['contents']))
+
+    def get_synopsis_lines(self, ncode):
+        """
+        あらすじの文のリストを返却
+        :param synopsis_file_path: str
+        :return: list
+        """
+        meta_file_path = self.create_meta_file_path(ncode=ncode)
+        if not meta_file_path in self.meta_file_paths:
+            print('nothing ncode')
+            return
+        synopsis = self.load(meta_file_path)['story']
+        return re.split('[。？]', synopsis)
+
+
+    def get_wakati_lines(self, lines):
+        """
+        文のリストを、分かち書きとクリーニングが行われた文のリストに変換
+        :param lines: list
+        :return: list
+        """
+        return [self.cleaning(self.wakati(line)).split() for line in lines]
+
+    def get_wakati_contents_lines(self, ncode):
+        """
+        本文の各文を分かち書きしたリストを取得
+        :param ncode: str
+        :return: list
+        """
+        contents_lines = self.get_contents_lines(ncode=ncode)
+        wakati_contents_lines = self.get_wakati_lines(contents_lines)
+        return wakati_contents_lines
+
+    def get_wakati_synopsis_lines(self, ncode):
+        """
+        あらすじの各分を分かち書きしたリストを取得
+        :param ncode:
+        :return:
+        """
+        synopsis_lines = self.get_synopsis_lines(ncode=ncode)
+        wakati_synopsis_lines = self.get_wakati_lines(synopsis_lines)
+        return wakati_synopsis_lines
+
+    def get_BoW_vectors(self, contents_lines, synopsis_lines):
+        """
+        文のリストから各文のBoWベクトルのリストを返す
+        :param contents_lines: list
+        本文の各文を要素とするリスト
+        :param synopsis_lines: list
+        あらすじの各文を要素とするリスト
+        :return: ([np.array], [np.array])
+        """
+        removed_contents_lines = [self.remove_stop_word(self.cleaning(line)) for line in contents_lines]
+        removed_synopsis_lines = [self.remove_stop_word(self.cleaning(line)) for line in synopsis_lines]
+        all_lines = removed_contents_lines + removed_synopsis_lines
+        vocaburaly = corpora.Dictionary(all_lines)
+        contents_BoWs = [vocaburaly.doc2bow(line) for line in removed_contents_lines]
+        synopsis_BoWs = [vocaburaly.doc2bow(line) for line in removed_synopsis_lines]
+        contents_vectors = [np.array(matutils.corpus2dense([bow], num_terms=len(vocaburaly)).T[0]) for bow in contents_BoWs]
+        synopsis_vectors = [np.array(matutils.corpus2dense([bow], num_terms=len(vocaburaly)).T[0]) for bow in synopsis_BoWs]
+        return contents_vectors, synopsis_vectors
+
+    def create_doc_embedding_model(self):
+        """
+        Doc2Vecで文の分散表現を取得するためのモデルの構築
+        """
         labeled_sentences = []
         for i, contents_file_path in enumerate(self.contents_file_paths):
             print('loading data progress: {}'.format(i/len(self.contents_file_paths)))
             ncode = self.ncode_from_contents_file_path(contents_file_path)
-            meta_file_path = os.path.join(self.novel_meta_dir_path, ncode+'_meta.json')
-            contents_lines = list(chain.from_iterable(self.load(contents_file_path)['contents']))
-            synopsis = self.load(meta_file_path)['story']
-            synopsis_lines = re.split('[。？]', synopsis)
-            wakati_contents_lines = [self.cleaning(self.wakati(line)).split() for line in contents_lines]
-            wakati_synopsis_lines = [self.cleaning(self.wakati(line)).split() for line in synopsis_lines]
+            wakati_contents_lines = self.get_wakati_contents_lines(ncode=ncode)
             contents_labeled_sentences = [LabeledSentence(words, tags=[ncode + '_' + str(i)]) for i, words in
                                           enumerate(wakati_contents_lines)]
+            wakati_synopsis_lines = self.get_wakati_synopsis_lines(ncode)
             synopsis_labeled_sentences = [LabeledSentence(words, tags=[ncode + '_synopsis_' + str(i)]) for i, words in
                                           enumerate(wakati_synopsis_lines)]
             labeled_sentences.extend(contents_labeled_sentences + synopsis_labeled_sentences)
@@ -49,17 +166,13 @@ class SynopsisSentenceVerificator:
         model.save(self.model_output_path)
 
     def verificate_synopsis_vector_similarity(self, ncode):
-        verificate_contents_file_path = os.path.join(self.novel_contents_dir_path, ncode + '.json')
-        verificate_meta_file_path = os.path.join(self.novel_meta_dir_path, ncode + '_meta.json')
-        if not verificate_contents_file_path in self.contents_file_paths or not verificate_meta_file_path in self.meta_file_paths:
-            print('nothing ncode')
-            return
-        contents_lines = list(chain.from_iterable(self.load(verificate_contents_file_path)['contents']))
-        synopsis = self.load(verificate_meta_file_path)['story']
-        synopsis_lines = re.split('[。？]', synopsis)
-        wakati_contents_lines = [self.cleaning(self.wakati(line)).split() for line in contents_lines]
-        wakati_synopsis_lines = [self.cleaning(self.wakati(line)).split() for line in synopsis_lines]
-
+        """
+        Doc2Vecによる文の分散表現で本文とあらすじ文の類似度を検証する
+        :param ncode: str
+        検証するNcode
+        """
+        wakati_contents_lines = self.get_wakati_contents_lines(ncode=ncode)
+        wakati_synopsis_lines = self.get_wakati_synopsis_lines(ncode=ncode)
         model = Doc2Vec.load(self.model_output_path)
         show_simirality_rank = 3
         for synopsis_idx, synopsis_line in enumerate(wakati_synopsis_lines):
@@ -83,28 +196,18 @@ class SynopsisSentenceVerificator:
         return model
 
     def verificate_synopsis_BoW_simirality(self, ncode):
-        contents_file_path = os.path.join(self.novel_contents_dir_path, ncode + '.json')
-        meta_file_path = os.path.join(self.novel_meta_dir_path, ncode + '_meta.json')
-        if not contents_file_path in self.contents_file_paths or not meta_file_path in self.meta_file_paths:
-            print('nothing ncode')
-            return
-        contents_lines = list(chain.from_iterable(self.load(contents_file_path)['contents']))
-        removed_contents_lines = [self.remove_stop_word(self.cleaning(line)) for line in contents_lines]
-        synopsis = self.load(meta_file_path)['story']
-        synopsis_lines = re.split('[。？]', synopsis)
-        removed_synopsis_lines = [self.remove_stop_word(self.cleaning(line)) for line in synopsis_lines]
-        all_lines = removed_contents_lines + removed_synopsis_lines
-        vocaburaly = corpora.Dictionary(all_lines)
-        contents_BoW = [vocaburaly.doc2bow(line) for line in removed_contents_lines]
-        synopsis_BoW = [vocaburaly.doc2bow(line) for line in removed_synopsis_lines]
-        contents_vectors = [np.array(matutils.corpus2dense([bow], num_terms=len(vocaburaly)).T[0]) for bow in contents_BoW]
-        synopsis_vectors = [np.array(matutils.corpus2dense([bow], num_terms=len(vocaburaly)).T[0]) for bow in synopsis_BoW]
+        """
+        文のBag-of-Wordsベクトルで本文とあらすじ文の類似度を検証する
+        :param ncode: str
+        検証するNcode
+        """
+        contents_lines = self.get_contents_lines(ncode=ncode)
+        synopsis_lines = self.get_synopsis_lines(ncode=ncode)
+        contents_vectors, synopsis_vectors = self.get_BoW_vectors(contents_lines, synopsis_lines)
         show_simirality_rank = 1
         for synopsis_idx, synopsis_vector in enumerate(synopsis_vectors):
             print('-' * 60)
-            # print('synopsis sentence index: {}'.format(synopsis_idx))
             print(self.cleaning(''.join(synopsis_lines[synopsis_idx])) + '\n')
-            # print(removed_synopsis_lines[synopsis_idx])
             sim = {}
             for contens_idx, contents_vector in enumerate(contents_vectors):
                 sim[contens_idx] = self.cos_sim(synopsis_vector, contents_vector)
@@ -112,50 +215,13 @@ class SynopsisSentenceVerificator:
                 sentence_idx, simirality = max(sim.items(), key=lambda x: x[1])
                 print('similarity: {:.3f}'.format(simirality))
                 print(''.join(contents_lines[sentence_idx]))
-                # print(removed_contents_lines[sentence_idx])
                 sim.pop(sentence_idx)
             print('\n')
 
-    def cos_sim(self, v1, v2):
-        return np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
-
-    def remove_stop_word(self, sentence):
-        # 文を名詞、形容詞、動詞、副詞のみのリストにする
-        part = ['名詞', '動詞', '形容詞', '副詞']
-        m = MeCab.Tagger('-d /usr/local/lib/mecab/dic/mecab-ipadic-neologd')
-        morphs = m.parse(sentence).split('\n')
-        removed = []
-        for morph in morphs:
-            splited = re.split('[,\t]', morph)
-            if len(splited) < 2: continue
-            if splited[1] in part:
-                removed.append(splited[0])
-            # removed.append(splited[0])
-        return removed
-
-
-    def cleaning(self, line):
-        line = line.replace('\u3000', '')
-        line = line.replace('\n', '')
-        return line
-
-    def ncode_from_contents_file_path(self, file_path):
-        return file_path.split('/')[-1].split('.')[0]
-
-    def load(self, file_path):
-        json_file = open(file_path, 'r')
-        contents = json.load(json_file)
-        json_file.close()
-        return contents
-
-    def wakati(self, line):
-        m = MeCab.Tagger('-d /usr/local/lib/mecab/dic/mecab-ipadic-neologd -Owakati')
-        wakati = m.parse(line)
-        return wakati
 
 
 if __name__ == '__main__':
     verificator = SynopsisSentenceVerificator()
     # verificator.create_doc_embedding_model()
     # verificator.verificate_synopsis_vector_similarity('n0002ei')
-    verificator.verificate_synopsis_BoW_simirality('n9859er')
+    verificator.verificate_synopsis_BoW_simirality('n9974br')
