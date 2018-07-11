@@ -55,6 +55,7 @@ class NarouCorpus:
     def cleaning(self, line):
         line = line.replace('\u3000', '')
         line = line.replace('\n', '')
+        line = line.replace(' ', '')
         return line
 
     def cos_sim(self, v1, v2):
@@ -211,13 +212,17 @@ class NarouCorpus:
             for line_idx, (contents_line, contents_BoW_vector) in enumerate(zip(contents_lines, contents_BoW_vectors)):
                 if line_idx % 30 == 0:
                     print('{} progress: {:.1f}%'.format(ncode, line_idx / len(contents_lines) * 100))
+
                 # 本文各文の文ベクトルをXに追加
                 try:
                     sentence_vector = self.get_avg_word_vectors(contents_line)
+                    X = np.append(X, [sentence_vector], axis=0)
                 except KeyError as err:
                     print(err)
                     continue
-                X = np.append(X, [sentence_vector], axis=0)
+                except:
+                    print('[Error] continue to add sentence vectors')
+                    continue
 
                 # 各文のあらすじ文との最大cos類似度をYに追加
                 max_sim = 0
@@ -234,6 +239,12 @@ class NarouCorpus:
                     joblib.dump(X, Xf, compress=3)
                 with open(self.non_seq_tensor_emb_cossim_data_Y_path, 'wb') as Yf:
                     joblib.dump(Y, Yf, compress=3)
+
+        print('saving tensor...')
+        with open(self.non_seq_tensor_emb_cossim_data_X_path, 'wb') as Xf:
+            joblib.dump(X, Xf, compress=3)
+        with open(self.non_seq_tensor_emb_cossim_data_Y_path, 'wb') as Yf:
+            joblib.dump(Y, Yf, compress=3)
         return X, Y
 
 
