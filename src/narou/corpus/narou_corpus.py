@@ -198,7 +198,7 @@ class NarouCorpus:
     def create_non_seq_tensors_emb_cossim(self):
         """
         非系列情報の文ベクトルとコサイン類似度のTensorを構築
-        100ファイルごとにテンソルを保存
+        10ファイルごとにテンソルを保存
         """
         X = np.empty((0, self.sentence_vector_size), float)
         Y = np.array([])
@@ -228,7 +228,7 @@ class NarouCorpus:
                 Y = np.append(Y, max_sim)
 
             # 100作品ごとにTensorを保存する
-            if file_index % 100 == 0:
+            if file_index % 10 == 0:
                 print('saving tensor...')
                 with open(self.non_seq_tensor_emb_cossim_data_X_path, 'wb') as Xf:
                     joblib.dump(X, Xf, compress=3)
@@ -237,7 +237,7 @@ class NarouCorpus:
         return X, Y
 
 
-    def non_seq_tensor_emb_cossim(self):
+    def non_seq_tensor_emb_cossim(self, tensor_refresh=False):
         """
         非系列情報と仮定された文ベクトルとコサイン類似度のTensorを返却
         X. 全小説の全文をベクトルで表した２次元ベクトル
@@ -248,7 +248,7 @@ class NarouCorpus:
         """
         is_tensor_data_exist = os.path.isfile(self.non_seq_tensor_emb_cossim_data_X_path)\
                                and os.path.isfile(self.non_seq_tensor_emb_cossim_data_Y_path)
-        if is_tensor_data_exist:
+        if is_tensor_data_exist and not tensor_refresh:
             X, Y = self.load_non_seq_tensors_emb_cossim_data()
         else:
             X, Y = self.create_non_seq_tensors_emb_cossim()
@@ -258,4 +258,4 @@ class NarouCorpus:
 
 if __name__ == '__main__':
     corpus = NarouCorpus()
-    corpus.non_seq_tensor_emb_cossim()
+    corpus.non_seq_tensor_emb_cossim(tensor_refresh=True)
