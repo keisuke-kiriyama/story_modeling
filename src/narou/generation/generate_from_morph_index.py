@@ -8,12 +8,12 @@ from keras.optimizers import Adam
 from keras.callbacks import EarlyStopping
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
-from src.narou.corpus.narou_corpus import NarouCorpus
+from src.narou.corpus.narou_corpus_to_embedding import NarouCorpusToEmbedding
 
 
 
 def train_emb_idx():
-    corpus = NarouCorpus()
+    corpus = NarouCorpusToEmbedding()
     N = len(corpus.contents_file_paths)
     N_train = int(N * 0.9)
     N_validation = N - N_train

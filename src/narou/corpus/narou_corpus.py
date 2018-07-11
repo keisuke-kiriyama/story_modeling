@@ -1,218 +1,254 @@
 import os
 import json
-import MeCab
-import logging
-import joblib
-from itertools import chain
-from gensim.models import word2vec
+import re
 import numpy as np
+import MeCab
+from itertools import chain
+import joblib
+from gensim.models import word2vec
+from gensim import corpora, matutils
+
 from src.util import settings
 
 class NarouCorpus:
-    # story_modeling/data/narou以下にjsonファイルが
-    # 格納されているcontentsディレクトリを用意
 
-    def __init__(self, is_data_updated=False, is_embed=False, embedding_size=200):
-        # is_data_updated
-        # データがアップデートされた際に、word2vec学習用のwakati_sentencesの構築と形態素の集合構築を行う
-        # is_embed
-        # word2vecのモデルを学習し直す
+    def __init__(self):
+        # PATHS
+        self.novel_contents_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'contents_small')
+        self.novel_meta_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'meta_small')
+        self.contents_file_paths = [os.path.join(self.novel_contents_dir_path, file_name) for file_name in os.listdir(self.novel_contents_dir_path) if not file_name == '.DS_Store']
+        self.meta_file_paths = [os.path.join(self.novel_meta_dir_path, file_name) for file_name in os.listdir(self.novel_meta_dir_path) if not file_name == '.DS_Store']
+        self.non_seq_tensor_emb_cossim_data_X_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'non_seq_tensors_emb_cossim_X.txt')
+        self.non_seq_tensor_emb_cossim_data_Y_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'non_seq_tensors_emb_cossim_Y.txt')
 
-        # paths
-        novel_contents_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'contents')
-        novel_meta_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'meta')
-        self.contents_file_paths = [os.path.join(novel_contents_dir_path, file_name) for file_name in os.listdir(novel_contents_dir_path) if not file_name == '.DS_Store']
-        self.meta_file_paths = [os.path.join(novel_meta_dir_path, file_name) for file_name in os.listdir(novel_meta_dir_path) if not file_name == '.DS_Store']
-        self.wakati_sentences_file_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'wakati_sentences.txt')
-        self.morph_set_file_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'morph_set.txt')
-        self.embedding_model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'narou_embedding.model')
+        # MODELS
+        self.word_embedding_model = self.load_embedding_model()
 
-        # embedding property
-        if is_data_updated:
-            self.wakati_sentences = self.create_wakati_sentences()
-        elif is_embed:
-            self.wakati_sentences = self.load_wakati_sentences()
-        else:
-            self.wakati_sentences = None
-        self.embedding_size = embedding_size
-        self.embedding_window = 15
-        self.embedding_min_count = 0
-        self.embedding_sg = 0
+        # PROPERTY
+        self.sentence_vector_size = 200
 
-        # set of morph
-        self.morph_set = self.create_morph_set() if is_data_updated else self.load_morph_set()
-        self.morph_indices = dict((c, i) for i, c in enumerate(self.morph_set))
-        self.indices_morph = dict((i, c) for i, c in enumerate(self.morph_set))
-        self.vocab_size = len(self.morph_set)
+    def load_embedding_model(self):
+        print('loading embedding_model...')
+        embedding_model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'narou_embedding.model')
+        return word2vec.Word2Vec.load(embedding_model_path)
 
-        # embedding
-        self.embedding_model = self.embedding() if is_embed else self.load_embedding_model()
-
-        # training data property
-        self.contents_length = 1000
-        self.synopsis_length = 350
-
-        # data to tensor
-        self.X, self.Y = self.data_to_tensor_emb_idx()
+    def ncode_from_contents_file_path(self, file_path):
+        return file_path.split('/')[-1].split('.')[0]
 
     def load(self, file_path):
         json_file = open(file_path, 'r')
-        contents = json.load(json_file)
+        data = json.load(json_file)
         json_file.close()
-        return contents
+        return data
+
+    def wakati(self, line):
+        m = MeCab.Tagger('-d /usr/local/lib/mecab/dic/mecab-ipadic-neologd -Owakati')
+        wakati = m.parse(line).replace('\n', '')
+        return wakati
+
+    def create_contents_file_path(self, ncode):
+        return os.path.join(self.novel_contents_dir_path, ncode + '.json')
+
+    def create_meta_file_path(self, ncode):
+        return os.path.join(self.novel_meta_dir_path, ncode+'_meta.json')
 
     def cleaning(self, line):
         line = line.replace('\u3000', '')
         line = line.replace('\n', '')
         return line
 
-    def wakati(self, line):
-        m = MeCab.Tagger('-d /usr/local/lib/mecab/dic/mecab-ipadic-neologd -Owakati')
-        wakati = m.parse(line)
-        return wakati
+    def cos_sim(self, v1, v2):
+        if np.linalg.norm(v1) == 0 or np.linalg.norm(v2) == 0:
+            return 0
+        return np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
 
-    def contents(self, ncode):
-        file_path = [path for path in self.contents_file_paths if ncode in path]
-        if not len(file_path) == 1:
-            print('invalid ncode')
+    def split_synopsis(self, synopsis):
+        """
+        あらすじを文ごとに分割する
+        :param synopsis: str
+        :return: list
+        """
+        return [line for line in re.split('[。？]', synopsis) if not line == '']
+
+    def get_contents_lines(self, ncode):
+        """
+        本文全文のリストを返却
+        :param contents_file_path: str
+        :return: list
+        """
+        contents_file_path = self.create_contents_file_path(ncode=ncode)
+        if not contents_file_path in self.contents_file_paths:
+            print('nothing ncode')
             return
-        contents = self.load(file_path[0])['contents']
-        for episode_index in range(len(contents)):
-            for line_index in range(len(contents[episode_index])):
-                contents[episode_index][line_index] = self.cleaning(contents[episode_index][line_index])
-        return contents
+        contents_lines = [line for line in list(chain.from_iterable(self.load(contents_file_path)['contents'])) if not self.cleaning(line) == '']
+        return contents_lines
 
-    def contents_from_file_path(self, file_path):
-        if not file_path in self.contents_file_paths:
-            print("does not exist file")
+    def get_synopsis_lines(self, ncode):
+        """
+        あらすじの文のリストを返却
+        :param synopsis_file_path: str
+        :return: list
+        """
+        meta_file_path = self.create_meta_file_path(ncode=ncode)
+        if not meta_file_path in self.meta_file_paths:
+            print('nothing ncode')
             return
-        contents = self.load(file_path)['contents']
-        for episode_index in range(len(contents)):
-            for line_index in range(len(contents[episode_index])):
-                contents[episode_index][line_index] = self.cleaning(contents[episode_index][line_index])
-        return contents
+        synopsis = self.load(meta_file_path)['story']
+        synopsis_lines = [self.cleaning(line) for line in self.split_synopsis(synopsis)]
+        return synopsis_lines
 
-    def synopsis(self, ncode):
-        file_path = [path for path in self.meta_file_paths if ncode in path]
-        if not len(file_path) == 1:
-            print('invalid ncode')
-            return
-        synopsis = self.cleaning(self.load(file_path[0])['story'])
-        return synopsis
+    def max_sentences_count(self):
+        """
+        全小説から最も文数の多い小説の文数を取得
+        :return: int
+        """
+        sentences_count = []
+        for file_path in self.contents_file_paths:
+            ncode = self.ncode_from_contents_file_path(file_path)
+            contents_lines = self.get_contents_lines(ncode=ncode)
+            sentences_count.append(len(contents_lines))
+        return max(sentences_count)
 
-    def synopsis_from_file_path(self, file_path):
-        if not file_path in self.meta_file_paths:
-            print('does not exist file')
-            return
-        synopsis = self.cleaning(self.load(file_path)['story'])
-        return synopsis
+    def get_wakati_lines(self, lines):
+        """
+        文のリストを、分かち書きが行われた文のリストに変換
+        :param lines: list
+        :return: list
+        """
+        return [self.wakati(line).split() for line in lines]
 
-    def create_wakati_sentences(self):
-        # 分かち書きされた文のリストと、形態素の集合を作成
-        wakati_sentences = []
-        wakati_sentences.extend(' ')
+    def get_wakati_contents_lines(self, ncode):
+        """
+        本文の各文を分かち書きしたリストを取得
+        :param ncode: str
+        :return: list
+        """
+        contents_lines = self.get_contents_lines(ncode=ncode)
+        wakati_contents_lines = self.get_wakati_lines(contents_lines)
+        return wakati_contents_lines
 
-        for i, contents_file_path in enumerate(self.contents_file_paths):
-            print('contents process progress: {:.3f}'.format(i / len(self.contents_file_paths)))
-            contents = list(chain.from_iterable(self.load(contents_file_path)['contents']))
-            wakati_lines = [self.wakati(self.cleaning(line)).split() for line in contents]
-            wakati_sentences.extend(wakati_lines)
+    def get_wakati_synopsis_lines(self, ncode):
+        """
+        あらすじの各分を分かち書きしたリストを取得
+        :param ncode:
+        :return:
+        """
+        synopsis_lines = self.get_synopsis_lines(ncode=ncode)
+        wakati_synopsis_lines = self.get_wakati_lines(synopsis_lines)
+        return wakati_synopsis_lines
 
-        # タイトルとあらすじに使われている形態素を集合に追加
-        # あらすじはWord2Vec学習データに追加
-        for i, meta_file_path in enumerate(self.meta_file_paths):
-            print('meta process progress: {}'.format(i / len(self.meta_file_paths)))
-            meta = self.load(meta_file_path)
-            synopsis = meta['story']
-            wakati_synopsis = self.wakati(synopsis).split()
-            wakati_sentences.append(wakati_synopsis)
-        with open(self.wakati_sentences_file_path, 'wb') as f:
-            joblib.dump(wakati_sentences, f, compress=3)
-        return wakati_sentences
+    def remove_stop_word(self, sentence):
+        """
+        文中の名詞、形容詞、動詞、副詞のリストを返却
+        :param sentence: str
+        :return: list
+        """
+        part = ['名詞', '動詞', '形容詞', '副詞']
+        m = MeCab.Tagger('-d /usr/local/lib/mecab/dic/mecab-ipadic-neologd')
+        morphs = m.parse(sentence).split('\n')
+        removed = []
+        for morph in morphs:
+            splited = re.split('[,\t]', morph)
+            if len(splited) < 2: continue
+            if splited[1] in part:
+                removed.append(splited[0])
+        return removed
 
-    def load_wakati_sentences(self):
-        print('loading wakati_sentences')
-        with open(self.wakati_sentences_file_path, 'rb') as f:
-            return joblib.load(f)
+    def get_BoW_vectors(self, contents_lines, synopsis_lines):
+        """
+        文のリストから各文のBoWベクトルのリストを返す
+        :param contents_lines: list
+        本文の各文を要素とするリスト
+        :param synopsis_lines: list
+        あらすじの各文を要素とするリスト
+        :return: ([np.array], [np.array])
+        """
+        print('creating BoW vectors...')
+        removed_contents_lines = [self.remove_stop_word(self.cleaning(line)) for line in contents_lines]
+        removed_synopsis_lines = [self.remove_stop_word(self.cleaning(line)) for line in synopsis_lines]
+        all_lines = removed_contents_lines + removed_synopsis_lines
+        vocaburaly = corpora.Dictionary(all_lines)
+        contents_BoWs = [vocaburaly.doc2bow(line) for line in removed_contents_lines]
+        synopsis_BoWs = [vocaburaly.doc2bow(line) for line in removed_synopsis_lines]
+        contents_vectors = [np.array(matutils.corpus2dense([bow], num_terms=len(vocaburaly)).T[0]) for bow in contents_BoWs]
+        synopsis_vectors = [np.array(matutils.corpus2dense([bow], num_terms=len(vocaburaly)).T[0]) for bow in synopsis_BoWs]
+        return contents_vectors, synopsis_vectors
 
-    def create_morph_set(self):
-        morph_set = set()
-        morph_set.add(' ')
-        morph_set.add('eos')
-        for i, sentence in enumerate(self.wakati_sentences):
-            print('morph set process progress: {:3f}'.format(i / len(self.wakati_sentences)))
-            for morph in sentence:
-                if not morph in morph_set:
-                    morph_set.add(morph)
-        with open(self.morph_set_file_path, 'wb') as f:
-            joblib.dump(morph_set, f, compress=3)
-        return morph_set
-
-    def load_morph_set(self):
-        print('loading morph_set...')
-        with open(self.morph_set_file_path, 'rb') as f:
-            return joblib.load(f)
-
-    def embedding(self):
-        logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
-        model = word2vec.Word2Vec(self.wakati_sentences,
-                                  size = self.embedding_size,
-                                  window=self.embedding_window,
-                                  min_count=self.embedding_min_count,
-                                  sg=self.embedding_sg)
-        model.save(self.embedding_model_path)
-        return model
-
-    def load_embedding_model(self):
-        print('loading embedding_model...')
-        return word2vec.Word2Vec.load(self.embedding_model_path)
-
-    def data_to_tensor_emb_idx(self):
-        # 小説本文とあらすじのデータをテンソルに変換する
-        # 小説本文: shape=(小説数, 単語数, 単語ベクトルサイズ)
-        # あらすじ: shape=(小説数, 単語数, 語彙サイズ)
-        # words_max_length: 使用する単語数
-        X = np.zeros((len(self.contents_file_paths), self.contents_length, self.embedding_size), dtype=np.float)
-        Y = np.zeros((len(self.contents_file_paths), self.synopsis_length, 1), dtype=np.integer)
-        for novel_index, contents_file_path in enumerate(self.contents_file_paths):
-            print('data to tensor progress: {:3f}'.format(novel_index / len(self.contents_file_paths)))
-            contents = self.contents_from_file_path(contents_file_path)
-            # 小説本文は1話目のみのテンソルを作成
-            # 本文は分かち書きを揃えるためにlineごとにwakatiを行う
-            episode_one_wakati_lines = [self.cleaning(self.wakati(line)) for line in contents[0]]
-            contents_morphs = ' '.join(episode_one_wakati_lines).split()
-            contents_morphs_to_embed = contents_morphs[0:self.contents_length] if len(contents_morphs) > self.contents_length else self.padding(contents_morphs, self.contents_length)
-            for contents_morph_index, contents_morph in enumerate(contents_morphs_to_embed):
-                try:
-                    X[novel_index][contents_morph_index] = self.embedding_model.__dict__['wv'][contents_morph]
-                except:
-                    print('[ERROR]error in contents_to_tensor: {}'.format(contents_morph))
-
-            # あらすじはOneHotVector
-            ncode = contents_file_path.split('/')[-1].split('.')[0]
-            meta_file_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'meta', ncode + '_meta.json')
-            synopsis = self.synopsis_from_file_path(meta_file_path)
-            synopsis_morphs = self.wakati(synopsis).split()
-            synopsis_morphs_to_idx = synopsis_morphs[0:self.synopsis_length] if len(synopsis_morphs) > self.synopsis_length else self.padding(synopsis_morphs, self.synopsis_length)
-            for synopsis_morph_index, synopsis_morph in enumerate(synopsis_morphs_to_idx):
-                try:
-                    Y[novel_index][synopsis_morph_index][0] = self.morph_indices[synopsis_morph]
-                except KeyError:
-                    print('[KEY ERROR]: {}'.format(synopsis_morph))
+    def load_non_seq_tensors_emb_cossim_data(self):
+        print('loading tensor data...')
+        with open(self.non_seq_tensor_emb_cossim_data_X_path, 'rb') as Xf:
+            X = joblib.load(Xf)
+        with open(self.non_seq_tensor_emb_cossim_data_Y_path, 'rb') as Yf:
+            Y = joblib.load(Yf)
         return X, Y
 
-    def padding(self, morphs, maxlen):
-        for _ in range(maxlen - len(morphs)):
-            morphs.append(' ')
-        return morphs
+    def get_avg_word_vectors(self, sentence):
+        """
+        文中の各単語の平均ベクトル返却
+        :param sentence: str
+        :return: np.array
+        """
+        wakati_sentence = self.wakati(sentence).split()
+        word_vectors = np.array([self.word_embedding_model.__dict__['wv'][word] for word in wakati_sentence])
+        return np.average(word_vectors, axis=0)
 
-def test_embedding():
-    model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'narou_embedding.model')
-    model = word2vec.Word2Vec.load(model_path)
-    results = model.wv.most_similar(positive=['部屋'])
-    for result in results:
-        print(result)
+    def create_non_seq_tensors_emb_cossim(self):
+        X = np.empty((0, self.sentence_vector_size), float)
+        Y = np.array([])
+        for file_index, contents_file_path in enumerate(self.contents_file_paths):
+            ncode = self.ncode_from_contents_file_path(contents_file_path)
+            print('[PROCESS NCODE]: {}'.format(ncode))
+            contents_lines = self.get_contents_lines(ncode=ncode)
+            synopsis_lines = self.get_synopsis_lines(ncode=ncode)
+            contents_BoW_vectors, synopsis_BoW_vectors = self.get_BoW_vectors(contents_lines=contents_lines, synopsis_lines=synopsis_lines)
+            for line_idx, (contents_line, contents_BoW_vector) in enumerate(zip(contents_lines, contents_BoW_vectors)):
+                if line_idx % 30 == 0:
+                    print('{} progress: {:.1f}%'.format(ncode, line_idx / len(contents_lines) * 100))
+                # 本文各文の文ベクトルをXに追加
+                try:
+                    sentence_vector = self.get_avg_word_vectors(contents_line)
+                except KeyError as err:
+                    print(err)
+                    continue
+                X = np.append(X, [sentence_vector], axis=0)
+
+                # 各文のあらすじ文との最大cos類似度をYに追加
+                max_sim = 0
+                for synopsis_BoW_vector in synopsis_BoW_vectors:
+                    sim = self.cos_sim(contents_BoW_vector, synopsis_BoW_vector)
+                    if sim > max_sim:
+                        max_sim = sim
+                Y = np.append(Y, max_sim)
+
+            # 100作品ごとにTensorを保存する
+            if file_index % 100 == 0:
+                print('saving tensor...')
+                with open(self.non_seq_tensor_emb_cossim_data_X_path, 'wb') as Xf:
+                    joblib.dump(X, Xf, compress=3)
+                with open(self.non_seq_tensor_emb_cossim_data_Y_path, 'wb') as Yf:
+                    joblib.dump(Y, Yf, compress=3)
+        return X, Y
+
+
+    def non_seq_tensor_emb_cossim(self):
+        """
+        非系列情報と仮定された文ベクトルとコサイン類似度のTensorを返却
+        X. 全小説の全文をベクトルで表した２次元ベクトル
+        - 文ベクトルは文中の単語ベクトルの平均ベクトル
+        - shape = (小説数*文数, 文ベクトルサイズ)
+        Y. 全小説の全文のコサイン類似度を要素とする１次元ベクトル
+        :return: (np.array, np.array)
+        """
+        is_tensor_data_exist = os.path.isfile(self.non_seq_tensor_emb_cossim_data_X_path)\
+                               and os.path.isfile(self.non_seq_tensor_emb_cossim_data_Y_path)
+        if is_tensor_data_exist:
+            X, Y = self.load_non_seq_tensors_emb_cossim_data()
+        else:
+            X, Y = self.create_non_seq_tensors_emb_cossim()
+        return X, Y
+
+
 
 if __name__ == '__main__':
     corpus = NarouCorpus()
-    X,Y = corpus.data_to_tensor_emb_idx(1000)
+    corpus.non_seq_tensor_emb_cossim()

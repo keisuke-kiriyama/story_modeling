@@ -242,13 +242,18 @@ class SynopsisSentenceVerificator:
         similar_sentence_indexes = np.argpartition(-contents_line_max_simirality,
                                                    sentence_count)[:sentence_count]
         appear_ordered = np.sort(similar_sentence_indexes)
-        for sentence_index in appear_ordered:
-            print(contents_lines[sentence_index])
-            print(contents_line_max_simirality[sentence_index])
+        # 類似度上位の文を繋げたあらすじを確認
+        # for sentence_index in appear_ordered:
+        #     print(contents_lines[sentence_index])
+        #     print(contents_line_max_simirality[sentence_index])
+        # 全文の類似度を確認
+        for contents_line, similarity in zip(contents_lines, contents_line_max_simirality):
+            print(contents_line)
+            print(similarity)
 
 if __name__ == '__main__':
     verificator = SynopsisSentenceVerificator()
     # verificator.create_doc_embedding_model()
     # verificator.verificate_synopsis_vector_similarity('n0002ei')
     # verificator.verificate_synopsis_BoW_simirality('n9974br')
-    verificator.sim_generate_synopsis_verification('n0013da', 8)
+    verificator.sim_generate_synopsis_verification('n9974br', 8)
