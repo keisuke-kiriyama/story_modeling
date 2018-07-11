@@ -174,14 +174,6 @@ class NarouCorpus:
         synopsis_vectors = [np.array(matutils.corpus2dense([bow], num_terms=len(vocaburaly)).T[0]) for bow in synopsis_BoWs]
         return contents_vectors, synopsis_vectors
 
-    def load_non_seq_tensors_emb_cossim_data(self):
-        print('loading tensor data...')
-        with open(self.non_seq_tensor_emb_cossim_data_X_path, 'rb') as Xf:
-            X = joblib.load(Xf)
-        with open(self.non_seq_tensor_emb_cossim_data_Y_path, 'rb') as Yf:
-            Y = joblib.load(Yf)
-        return X, Y
-
     def get_avg_word_vectors(self, sentence):
         """
         文中の各単語の平均ベクトル返却
@@ -192,7 +184,22 @@ class NarouCorpus:
         word_vectors = np.array([self.word_embedding_model.__dict__['wv'][word] for word in wakati_sentence])
         return np.average(word_vectors, axis=0)
 
+    def load_non_seq_tensors_emb_cossim_data(self):
+        """
+        非系列情報の文ベクトルとコサイン類似度のTensorを読み込む
+        """
+        print('loading tensor data...')
+        with open(self.non_seq_tensor_emb_cossim_data_X_path, 'rb') as Xf:
+            X = joblib.load(Xf)
+        with open(self.non_seq_tensor_emb_cossim_data_Y_path, 'rb') as Yf:
+            Y = joblib.load(Yf)
+        return X, Y
+
     def create_non_seq_tensors_emb_cossim(self):
+        """
+        非系列情報の文ベクトルとコサイン類似度のTensorを構築
+        100ファイルごとにテンソルを保存
+        """
         X = np.empty((0, self.sentence_vector_size), float)
         Y = np.array([])
         for file_index, contents_file_path in enumerate(self.contents_file_paths):
