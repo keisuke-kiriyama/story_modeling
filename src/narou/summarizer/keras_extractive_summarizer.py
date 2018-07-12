@@ -20,17 +20,17 @@ class KerasExtractiveSummarizer:
         self.trained_model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'keras_extractive_summarizer_model.hdf5')
 
         # NAROU CORPUS
-        corpus = NarouCorpus()
+        self.corpus = NarouCorpus()
 
         # TRAINING DATA
-        self.X, self.Y = corpus.non_seq_tensor_emb_cossim()
+        self.X, self.Y = self.corpus.non_seq_tensor_emb_cossim()
         self.X_train, self.X_test, self.Y_train, self.Y_test = \
             train_test_split(self.X, self.Y, test_size=0.1)
         self.X_train, self.X_validation, self.Y_train, self.Y_validation = \
             train_test_split(self.X_train, self.Y_train, test_size=0.1)
 
         # DNN MODEL PROPERTY
-        self.n_in = corpus.sentence_vector_size
+        self.n_in = self.corpus.sentence_vector_size
         self.n_hiddens = [200, 200]
         self.n_out = 1
         self.activation = 'relu'
@@ -95,7 +95,6 @@ class KerasExtractiveSummarizer:
     def show_training_process(self):
         """
         訓練過程の損失関数の値をプロット
-        :return:
         """
         loss = summarizer.training_hist.history['val_loss']
 
@@ -105,11 +104,43 @@ class KerasExtractiveSummarizer:
         plt.xlabel('epochs')
         plt.show()
 
+    def generate_synopsis(self):
+        test_dict = self.corpus.non_seq_tensor_emb_cossim_to_test()
+        test_ncodes = test_dict.keys()
+        synopsis_sentence_count = 8
+        for test_ncode in test_ncodes:
+            print('[INFO] test ncode: {}'.format(test_ncode))
+            contents_lines = self.corpus.get_contents_lines(ncode=test_ncode, is_test_data=True)
+            synopsis_lines = self.corpus.get_synopsis_lines(ncode=test_ncode, is_test_data=True)
+            X = test_dict[test_ncode]['X']
+            Y = test_dict[test_ncode]['Y']
+            Y_pred = self.trained_model.predict(X)
+            mse = mean_squared_error(Y, Y_pred)
+            print('mean squared error = {}'.format(mse))
+            similar_sentence_indexes = np.argpartition(-Y_pred.T,
+                                                   synopsis_sentence_count)[0][:synopsis_sentence_count]
+            appear_ordered = np.sort(similar_sentence_indexes)
+            for sentence_index in appear_ordered:
+                print(contents_lines[sentence_index])
+                print('similarity: {}'.format(Y_pred[sentence_index][0]))
+                print('correct siilarity: {}'.format(Y[sentence_index]))
+                print('\n')
+            higher_similarity_indexes = np.argpartition(-Y,
+                                                        synopsis_sentence_count)[:synopsis_sentence_count]
+            appear_ordered = np.sort(higher_similarity_indexes)
+            print('-' * 100)
+            for sentence_index in appear_ordered:
+                print(contents_lines[sentence_index])
+                print('similarity: {}'.format(Y[sentence_index]))
+                print('\n')
+
+
 if __name__ == '__main__':
     summarizer = KerasExtractiveSummarizer()
-    summarizer.fit()
-    summarizer.evaluate_mse()
+    # summarizer.fit()
+    # summarizer.evaluate_mse()
     # summarizer.show_training_process()
+    summarizer.generate_synopsis()
 
 
 

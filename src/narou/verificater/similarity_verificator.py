@@ -241,7 +241,7 @@ class SynopsisSentenceVerificator:
             contents_line_max_simirality = np.append(contents_line_max_simirality, max_sim)
         similar_sentence_indexes = np.argpartition(-contents_line_max_simirality,
                                                    sentence_count)[:sentence_count]
-        appear_ordered = np.sort(similar_sentence_indexes)
+        # appear_ordered = np.sort(similar_sentence_indexes)
         # 類似度上位の文を繋げたあらすじを確認
         # for sentence_index in appear_ordered:
         #     print(contents_lines[sentence_index])
