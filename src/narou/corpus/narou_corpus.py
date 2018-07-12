@@ -204,6 +204,7 @@ class NarouCorpus:
         """
         与えられたNコードの小説の文ベクトルとコサイン類似度のTensorを返却
         :param ncode: str
+        :param is_test_data: bool
         :return: (np.array, np.array)
         """
         print('[PROCESS NCODE]: {}'.format(ncode))
@@ -274,6 +275,7 @@ class NarouCorpus:
         - 文ベクトルは文中の単語ベクトルの平均ベクトル
         - shape = (小説数*文数, 文ベクトルサイズ)
         Y. 全小説の全文のコサイン類似度を要素とする１次元ベクトル
+        :param tensor_refresh: bool
         :return: (np.array, np.array)
         """
         is_tensor_data_exist = os.path.isfile(self.non_seq_tensor_emb_cossim_data_X_path)\
@@ -285,18 +287,29 @@ class NarouCorpus:
         return X, Y
 
     def non_seq_tensor_emb_cossim_to_test(self):
+        """
+        テスト用の小説のテンソルを返す
+        Xに小説全文の文ベクトル,Yにあらすじ文との最大コサイン類似度
+        :return: dict
+        {
+        ncode:
+            {
+            X: np.array,
+            Y: np.array
+            }
+        }
+        """
         test_contents_file_paths = [os.path.join(self.test_contents_dir_path, file_name) for file_name in os.listdir(self.test_contents_dir_path) if not file_name == '.DS_Store']
         test_contents_ncodes = [self.ncode_from_contents_file_path(file_path=file_path) for file_path in test_contents_file_paths]
-        test_contents_dict = {}
+        test_novel_dict = {}
         for test_contents_ncode in test_contents_ncodes:
             X, Y = self.create_non_seq_tensors_emb_cossim_per_novel(ncode=test_contents_ncode, is_test_data=True)
-            test_contents_dict[test_contents_ncode]['X'] = X
-            test_contents_dict[test_contents_ncode]['Y'] = Y
-        return test_contents_dict
+            per_novel_dict = {'X': X, 'Y': Y}
+            test_novel_dict[test_contents_ncode] = per_novel_dict
+        return test_novel_dict
 
 
 if __name__ == '__main__':
     corpus = NarouCorpus()
     # corpus.non_seq_tensor_emb_cossim(tensor_refresh=True)
-    corpus.non_seq_tensor_emb_cossim_to_test()
 
