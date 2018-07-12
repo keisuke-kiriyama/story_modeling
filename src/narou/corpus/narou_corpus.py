@@ -269,4 +269,5 @@ class NarouCorpus:
 
 if __name__ == '__main__':
     corpus = NarouCorpus()
-    corpus.non_seq_tensor_emb_cossim(tensor_refresh=True)
+    # corpus.non_seq_tensor_emb_cossim()
+    
