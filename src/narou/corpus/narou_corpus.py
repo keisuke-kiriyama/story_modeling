@@ -196,6 +196,43 @@ class NarouCorpus:
             Y = joblib.load(Yf)
         return X, Y
 
+    def create_non_seq_tensors_emb_cossim_per_novel(self, ncode):
+        """
+        与えられたNコードの小説一つの文ベクトルとコサイン類似度のTensorを返却
+        :param ncode: str
+        :return: (np.array, np.array)
+        """
+        print('[PROCESS NCODE]: {}'.format(ncode))
+        X_per_novel = np.empty((0, self.sentence_vector_size), float)
+        Y_per_novel = np.array([])
+        contents_lines = self.get_contents_lines(ncode=ncode)
+        synopsis_lines = self.get_synopsis_lines(ncode=ncode)
+        contents_BoW_vectors, synopsis_BoW_vectors = self.get_BoW_vectors(contents_lines=contents_lines, synopsis_lines=synopsis_lines)
+        for line_idx, (contents_line, contents_BoW_vector) in enumerate(zip(contents_lines, contents_BoW_vectors)):
+                if line_idx % 30 == 0:
+                    print('{} progress: {:.1f}%'.format(ncode, line_idx / len(contents_lines) * 100))
+
+                # 本文各文の文ベクトルをX_per_novelに追加
+                try:
+                    sentence_vector = self.get_avg_word_vectors(contents_line)
+                    X_per_novel = np.append(X_per_novel, [sentence_vector], axis=0)
+                except KeyError as err:
+                    print(err)
+                    continue
+                except:
+                    print('[Error] continue to add sentence vectors')
+                    continue
+
+                # 各文のあらすじ文との最大cos類似度をY_per_novelに追加
+                max_sim = 0
+                for synopsis_BoW_vector in synopsis_BoW_vectors:
+                    sim = self.cos_sim(contents_BoW_vector, synopsis_BoW_vector)
+                    if sim > max_sim:
+                        max_sim = sim
+                Y_per_novel = np.append(Y_per_novel, max_sim)
+        return X_per_novel, Y_per_novel
+
+
     def create_non_seq_tensors_emb_cossim(self):
         """
         非系列情報の文ベクトルとコサイン類似度のTensorを構築
@@ -205,32 +242,9 @@ class NarouCorpus:
         Y = np.array([])
         for file_index, contents_file_path in enumerate(self.contents_file_paths):
             ncode = self.ncode_from_contents_file_path(contents_file_path)
-            print('[PROCESS NCODE]: {}'.format(ncode))
-            contents_lines = self.get_contents_lines(ncode=ncode)
-            synopsis_lines = self.get_synopsis_lines(ncode=ncode)
-            contents_BoW_vectors, synopsis_BoW_vectors = self.get_BoW_vectors(contents_lines=contents_lines, synopsis_lines=synopsis_lines)
-            for line_idx, (contents_line, contents_BoW_vector) in enumerate(zip(contents_lines, contents_BoW_vectors)):
-                if line_idx % 30 == 0:
-                    print('{} progress: {:.1f}%'.format(ncode, line_idx / len(contents_lines) * 100))
-
-                # 本文各文の文ベクトルをXに追加
-                try:
-                    sentence_vector = self.get_avg_word_vectors(contents_line)
-                    X = np.append(X, [sentence_vector], axis=0)
-                except KeyError as err:
-                    print(err)
-                    continue
-                except:
-                    print('[Error] continue to add sentence vectors')
-                    continue
-
-                # 各文のあらすじ文との最大cos類似度をYに追加
-                max_sim = 0
-                for synopsis_BoW_vector in synopsis_BoW_vectors:
-                    sim = self.cos_sim(contents_BoW_vector, synopsis_BoW_vector)
-                    if sim > max_sim:
-                        max_sim = sim
-                Y = np.append(Y, max_sim)
+            X_per_novel, Y_per_novel = self.create_non_seq_tensors_emb_cossim_per_novel(ncode=ncode)
+            X = np.append(X, X_per_novel, axis=0)
+            Y = np.append(Y, Y_per_novel)
 
             # 100作品ごとにTensorを保存する
             if file_index % 10 == 0:
@@ -269,5 +283,5 @@ class NarouCorpus:
 
 if __name__ == '__main__':
     corpus = NarouCorpus()
-    # corpus.non_seq_tensor_emb_cossim()
-    
+    corpus.non_seq_tensor_emb_cossim(tensor_refresh=True)
+
