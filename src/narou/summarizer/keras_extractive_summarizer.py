@@ -81,7 +81,7 @@ class KerasExtractiveSummarizer:
         self.trained_model = model
         self.training_hist = hist
 
-    def predict(self):
+    def evaluate_mse(self):
         """
         学習したモデルを用いて推定を行い平均二乘誤差の平方根を出力
         """
@@ -108,7 +108,7 @@ class KerasExtractiveSummarizer:
 if __name__ == '__main__':
     summarizer = KerasExtractiveSummarizer()
     summarizer.fit()
-    summarizer.predict()
+    summarizer.evaluate_mse()
     # summarizer.show_training_process()
 
 

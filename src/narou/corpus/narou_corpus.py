@@ -18,6 +18,8 @@ class NarouCorpus:
         self.novel_meta_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'meta_small')
         self.contents_file_paths = [os.path.join(self.novel_contents_dir_path, file_name) for file_name in os.listdir(self.novel_contents_dir_path) if not file_name == '.DS_Store']
         self.meta_file_paths = [os.path.join(self.novel_meta_dir_path, file_name) for file_name in os.listdir(self.novel_meta_dir_path) if not file_name == '.DS_Store']
+        self.test_contents_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'contents_test')
+        self.test_meta_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'meta_test')
         self.non_seq_tensor_emb_cossim_data_X_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'non_seq_tensors_emb_cossim_X.txt')
         self.non_seq_tensor_emb_cossim_data_Y_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'non_seq_tensors_emb_cossim_Y.txt')
 
@@ -46,11 +48,13 @@ class NarouCorpus:
         wakati = m.parse(line).replace('\n', '')
         return wakati
 
-    def create_contents_file_path(self, ncode):
-        return os.path.join(self.novel_contents_dir_path, ncode + '.json')
+    def create_contents_file_path(self, ncode, is_test_data=False):
+        dir_path = self.novel_contents_dir_path if not is_test_data else self.test_contents_dir_path
+        return os.path.join(dir_path, ncode + '.json')
 
-    def create_meta_file_path(self, ncode):
-        return os.path.join(self.novel_meta_dir_path, ncode+'_meta.json')
+    def create_meta_file_path(self, ncode, is_test_data=False):
+        dir_path = self.novel_meta_dir_path if not is_test_data else self.test_meta_dir_path
+        return os.path.join(dir_path, ncode+'_meta.json')
 
     def cleaning(self, line):
         line = line.replace('\u3000', '')
@@ -71,27 +75,27 @@ class NarouCorpus:
         """
         return [line for line in re.split('[。？]', synopsis) if not line == '']
 
-    def get_contents_lines(self, ncode):
+    def get_contents_lines(self, ncode, is_test_data=False):
         """
         本文全文のリストを返却
         :param contents_file_path: str
         :return: list
         """
-        contents_file_path = self.create_contents_file_path(ncode=ncode)
-        if not contents_file_path in self.contents_file_paths:
+        contents_file_path = self.create_contents_file_path(ncode=ncode, is_test_data=is_test_data)
+        if not is_test_data and not contents_file_path in self.contents_file_paths:
             print('nothing ncode')
             return
         contents_lines = [line for line in list(chain.from_iterable(self.load(contents_file_path)['contents'])) if not self.cleaning(line) == '']
         return contents_lines
 
-    def get_synopsis_lines(self, ncode):
+    def get_synopsis_lines(self, ncode, is_test_data=False):
         """
         あらすじの文のリストを返却
         :param synopsis_file_path: str
         :return: list
         """
-        meta_file_path = self.create_meta_file_path(ncode=ncode)
-        if not meta_file_path in self.meta_file_paths:
+        meta_file_path = self.create_meta_file_path(ncode=ncode, is_test_data=is_test_data)
+        if not is_test_data and not meta_file_path in self.meta_file_paths:
             print('nothing ncode')
             return
         synopsis = self.load(meta_file_path)['story']
@@ -196,17 +200,17 @@ class NarouCorpus:
             Y = joblib.load(Yf)
         return X, Y
 
-    def create_non_seq_tensors_emb_cossim_per_novel(self, ncode):
+    def create_non_seq_tensors_emb_cossim_per_novel(self, ncode, is_test_data=False):
         """
-        与えられたNコードの小説一つの文ベクトルとコサイン類似度のTensorを返却
+        与えられたNコードの小説の文ベクトルとコサイン類似度のTensorを返却
         :param ncode: str
         :return: (np.array, np.array)
         """
         print('[PROCESS NCODE]: {}'.format(ncode))
         X_per_novel = np.empty((0, self.sentence_vector_size), float)
         Y_per_novel = np.array([])
-        contents_lines = self.get_contents_lines(ncode=ncode)
-        synopsis_lines = self.get_synopsis_lines(ncode=ncode)
+        contents_lines = self.get_contents_lines(ncode=ncode, is_test_data=is_test_data)
+        synopsis_lines = self.get_synopsis_lines(ncode=ncode, is_test_data=is_test_data)
         contents_BoW_vectors, synopsis_BoW_vectors = self.get_BoW_vectors(contents_lines=contents_lines, synopsis_lines=synopsis_lines)
         for line_idx, (contents_line, contents_BoW_vector) in enumerate(zip(contents_lines, contents_BoW_vectors)):
                 if line_idx % 30 == 0:
@@ -241,6 +245,7 @@ class NarouCorpus:
         X = np.empty((0, self.sentence_vector_size), float)
         Y = np.array([])
         for file_index, contents_file_path in enumerate(self.contents_file_paths):
+            print('[INFO] num of processed novel count: {}'.format(file_index))
             ncode = self.ncode_from_contents_file_path(contents_file_path)
             X_per_novel, Y_per_novel = self.create_non_seq_tensors_emb_cossim_per_novel(ncode=ncode)
             X = np.append(X, X_per_novel, axis=0)
@@ -279,9 +284,19 @@ class NarouCorpus:
             X, Y = self.create_non_seq_tensors_emb_cossim()
         return X, Y
 
+    def non_seq_tensor_emb_cossim_to_test(self):
+        test_contents_file_paths = [os.path.join(self.test_contents_dir_path, file_name) for file_name in os.listdir(self.test_contents_dir_path) if not file_name == '.DS_Store']
+        test_contents_ncodes = [self.ncode_from_contents_file_path(file_path=file_path) for file_path in test_contents_file_paths]
+        test_contents_dict = {}
+        for test_contents_ncode in test_contents_ncodes:
+            X, Y = self.create_non_seq_tensors_emb_cossim_per_novel(ncode=test_contents_ncode, is_test_data=True)
+            test_contents_dict[test_contents_ncode]['X'] = X
+            test_contents_dict[test_contents_ncode]['Y'] = Y
+        return test_contents_dict
 
 
 if __name__ == '__main__':
     corpus = NarouCorpus()
-    corpus.non_seq_tensor_emb_cossim(tensor_refresh=True)
+    # corpus.non_seq_tensor_emb_cossim(tensor_refresh=True)
+    corpus.non_seq_tensor_emb_cossim_to_test()
 
