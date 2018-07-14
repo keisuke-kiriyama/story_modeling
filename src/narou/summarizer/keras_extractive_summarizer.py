@@ -69,8 +69,8 @@ class KerasExtractiveSummarizer:
         :return:
         """
         early_stopping = EarlyStopping(monitor='val_loss', patience=10, verbose=1)
-        epochs = 20
-        batch_size = 10000
+        epochs = 1000
+        batch_size = 100
         model = self.inference()
 
         hist = model.fit(self.X_train, self.Y_train, epochs=epochs,
@@ -81,9 +81,9 @@ class KerasExtractiveSummarizer:
         self.trained_model = model
         self.training_hist = hist
 
-    def evaluate_mse(self):
+    def eval(self):
         """
-        学習したモデルを用いて推定を行い平均二乘誤差の平方根を出力
+        学習済みモデルの評価
         """
         if not self.trained_model:
             print("haven't trained yet")
@@ -91,6 +91,26 @@ class KerasExtractiveSummarizer:
         Y_pred = self.trained_model.predict(self.X_test)
         mse = mean_squared_error(self.Y_test, Y_pred)
         print("MEAN SQUARED ERROR : %.4f" % (mse ** 0.5))
+
+    def generate_synopsis(self, ncode, sentence_count, sim_threshold):
+        if ncode in self.training_data_dict.keys():
+            print('Exist in training data set')
+            X = self.training_data_dict[ncode]['X']
+            Y = self.training_data_dict[ncode]['X']
+        elif ncode in self.test_data_dict.keys():
+            print('Exist in test data set')
+            X = self.test_data_dict[ncode]['X']
+            Y = self.test_data_dict[ncode]['Y']
+        else:
+            print('Not exist in data set')
+            X, Y = self.corpus.create_non_seq_tensors_emb_cossim_per_novel(ncode=ncode)
+        Y_pred = self.trained_model.predict(X)
+        similar_sentence_indexes = np.argpartition(-Y_pred.T,
+                                                   sentence_count)[0][:sentence_count]
+        contents_lines = self.corpus.get_contents_lines(ncode=ncode)
+        synopsis_lines = [self.corpus.cleaning(contents_lines[line_index]) for line_index in similar_sentence_indexes]
+        synopsis = ''.join(synopsis_lines)
+        return synopsis
 
     def show_training_process(self):
         """
@@ -140,7 +160,8 @@ class KerasExtractiveSummarizer:
 
 if __name__ == '__main__':
     summarizer = KerasExtractiveSummarizer()
-    summarizer.fit()
-    summarizer.evaluate_mse()
-    summarizer.show_training_process()
+    # summarizer.fit()
+    # summarizer.eval()
+    # summarizer.show_training_process()
     # summarizer.verificate_synopsis_generation()
+    # summarizer.generate_synopsis('n0011cx', sentence_count=8, sim_threshold=0.3)
