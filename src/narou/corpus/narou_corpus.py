@@ -291,16 +291,17 @@ class NarouCorpus:
             data_dict = self.create_non_seq_data_dict_emb_cossim()
         return data_dict
 
-    def splited_non_seq_data_dict_emb_cossim(self, splited_refresh=False, test_size=0.2):
+    def dict_train_test_split(self, data_dict, splited_refresh=False, test_size=0.2):
         """
         TrainとTestに分割されたデータを返す
+        :param data_dict: dict
+        分割する辞書データ
         :param splited_refresh: Bool
         分割する際のNコードをリフレッシュするか
         :param test_size: float
         テストデータの割合
         :return: (dict, dict)
         """
-        data_dict = self.non_seq_data_dict_emb_cossim()
         is_ncodes_file_exists = os.path.isfile(self.non_seq_data_dict_emb_cossim_train_ncode_path) \
                                 and os.path.isfile(self.non_seq_data_dict_emb_cossim_test_ncode_path)
         if is_ncodes_file_exists and not splited_refresh:
@@ -322,5 +323,4 @@ class NarouCorpus:
 
 if __name__ == '__main__':
     corpus = NarouCorpus()
-    corpus.splited_non_seq_data_dict_emb_cossim()
 
