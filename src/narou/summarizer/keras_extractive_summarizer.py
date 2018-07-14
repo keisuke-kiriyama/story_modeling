@@ -9,6 +9,7 @@ from keras.utils.generic_utils import get_custom_objects
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 import matplotlib.pyplot as plt
+from rouge import Rouge
 
 from src.util import settings
 from src.narou.corpus.narou_corpus import NarouCorpus
@@ -81,29 +82,19 @@ class KerasExtractiveSummarizer:
         self.trained_model = model
         self.training_hist = hist
 
-    def eval(self):
+    def generate_synopsis(self, ncode, sentence_count):
         """
-        学習済みモデルの評価
+        ncodeの小説のあらすじを学習済みモデルから生成する
+        :param ncode: str
+        :param sentence_count: int
+        :return: str
         """
-        if not self.trained_model:
-            print("haven't trained yet")
-            return
-        Y_pred = self.trained_model.predict(self.X_test)
-        mse = mean_squared_error(self.Y_test, Y_pred)
-        print("MEAN SQUARED ERROR : %.4f" % (mse ** 0.5))
-
-    def generate_synopsis(self, ncode, sentence_count, sim_threshold):
         if ncode in self.training_data_dict.keys():
-            print('Exist in training data set')
             X = self.training_data_dict[ncode]['X']
-            Y = self.training_data_dict[ncode]['X']
         elif ncode in self.test_data_dict.keys():
-            print('Exist in test data set')
             X = self.test_data_dict[ncode]['X']
-            Y = self.test_data_dict[ncode]['Y']
         else:
-            print('Not exist in data set')
-            X, Y = self.corpus.create_non_seq_tensors_emb_cossim_per_novel(ncode=ncode)
+            X, _ = self.corpus.create_non_seq_tensors_emb_cossim_per_novel(ncode=ncode)
         Y_pred = self.trained_model.predict(X)
         similar_sentence_indexes = np.argpartition(-Y_pred.T,
                                                    sentence_count)[0][:sentence_count]
@@ -111,6 +102,48 @@ class KerasExtractiveSummarizer:
         synopsis_lines = [self.corpus.cleaning(contents_lines[line_index]) for line_index in similar_sentence_indexes]
         synopsis = ''.join(synopsis_lines)
         return synopsis
+
+    def eval(self):
+        """
+        学習済みモデルの評価
+        - 平均２乘誤差
+        - ROUGE-1
+        - ROUGE-2
+        - ROUGE-L
+        """
+        if not self.trained_model:
+            print("haven't trained yet")
+            return
+        Y_pred = self.trained_model.predict(self.X_test)
+        mse = mean_squared_error(self.Y_test, Y_pred)
+        print("[INFO] MEAN SQUARED ERROR : %.4f" % (mse ** 0.5))
+
+        hyps = []
+        refs = []
+        for ncode, test_data in self.test_data_dict.items():
+            correct_synopsis_lines = self.corpus.get_synopsis_lines(ncode=ncode)
+            correct_synopsis = ''.join(correct_synopsis_lines)
+            wakati_correct_synopsis = self.corpus.wakati(correct_synopsis)
+            refs.append(wakati_correct_synopsis)
+            predict_synopsis = self.generate_synopsis(ncode=ncode, sentence_count=len(correct_synopsis_lines))
+            wakati_predict_synopsis = self.corpus.wakati(predict_synopsis)
+            hyps.append(wakati_predict_synopsis)
+
+        rouge = Rouge()
+        scores = rouge.get_scores(hyps, refs, avg=True)
+        print('[ROUGE-1]')
+        print('f-measure: {}'.format(scores['rouge-1']['f']))
+        print('precision: {}'.format(scores['rouge-1']['r']))
+        print('recall: {}'.format(scores['rouge-1']['p']))
+        print('[ROUGE-2]')
+        print('f-measure: {}'.format(scores['rouge-2']['f']))
+        print('precision: {}'.format(scores['rouge-2']['r']))
+        print('recall: {}'.format(scores['rouge-2']['p']))
+        print('[ROUGE-L]')
+        print('f-measure: {}'.format(scores['rouge-l']['f']))
+        print('precision: {}'.format(scores['rouge-l']['r']))
+        print('recall: {}'.format(scores['rouge-l']['p']))
+
 
     def show_training_process(self):
         """
@@ -161,7 +194,7 @@ class KerasExtractiveSummarizer:
 if __name__ == '__main__':
     summarizer = KerasExtractiveSummarizer()
     # summarizer.fit()
-    # summarizer.eval()
+    summarizer.eval()
     # summarizer.show_training_process()
     # summarizer.verificate_synopsis_generation()
     # summarizer.generate_synopsis('n0011cx', sentence_count=8, sim_threshold=0.3)
