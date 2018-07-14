@@ -31,7 +31,7 @@ class KerasExtractiveSummarizer:
 
         # DNN MODEL PROPERTY
         self.n_in = self.corpus.sentence_vector_size
-        self.n_hiddens = [200, 200]
+        self.n_hiddens = [800, 800]
         self.n_out = 1
         self.activation = 'relu'
         self.p_keep = 0.5
@@ -90,7 +90,7 @@ class KerasExtractiveSummarizer:
             return
         Y_pred = self.trained_model.predict(self.X_test)
         mse = mean_squared_error(self.Y_test, Y_pred)
-        print("KERAS REG RMSE : %.4f" % (mse ** 0.5))
+        print("MEAN SQUARED ERROR : %.4f" % (mse ** 0.5))
 
     def show_training_process(self):
         """
@@ -107,7 +107,6 @@ class KerasExtractiveSummarizer:
     def verificate_synopsis_generation(self):
         """
         テスト用に作成されたテンソルを用いて実際に出力されるあらすじを確認する
-        :return:
         """
         test_ncodes = self.test_data_dict.keys()
         synopsis_sentence_count = 8
@@ -144,4 +143,4 @@ if __name__ == '__main__':
     summarizer.fit()
     summarizer.evaluate_mse()
     summarizer.show_training_process()
-    summarizer.verificate_synopsis_generation()
+    # summarizer.verificate_synopsis_generation()
