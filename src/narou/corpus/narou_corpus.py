@@ -18,7 +18,7 @@ class NarouCorpus:
         self.novel_meta_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'meta_small')
         self.contents_file_paths = [os.path.join(self.novel_contents_dir_path, file_name) for file_name in os.listdir(self.novel_contents_dir_path) if not file_name == '.DS_Store']
         self.meta_file_paths = [os.path.join(self.novel_meta_dir_path, file_name) for file_name in os.listdir(self.novel_meta_dir_path) if not file_name == '.DS_Store']
-        self.non_seq_data_dict_emb_cossim_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'non_seq_data_dict_emb_cossim.txt')
+        self.non_seq_data_dict_emb_cossim_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'non_seq_data_dict_emb_cossim_small.txt')
         self.non_seq_data_dict_emb_cossim_train_ncode_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'non_seq_data_dict_emb_cossim_train_ncode.txt')
         self.non_seq_data_dict_emb_cossim_test_ncode_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'non_seq_data_dict_emb_cossim_test_ncode.txt')
 
@@ -320,7 +320,29 @@ class NarouCorpus:
             joblib.dump(test_ncodes, test_f, compress=3)
         return train_data, test_data
 
+    def get_train_tensor(self, data_dict):
+        """
+        訓練データの辞書を訓練用テンソルに変換
+        :param data_dict: dict
+        {
+        ncode:
+            {
+            X: np.array,
+            Y: np.array
+            }
+        }
+        :return: (np.array, np.array)
+        """
+        X_train = np.empty((0, self.sentence_vector_size), float)
+        Y_train = np.array([])
+        for data in data_dict.values():
+            X_train = np.append(X_train, data['X'], axis=0)
+            Y_train = np.append(Y_train, data['Y'])
+        return X_train, Y_train
+
 
 if __name__ == '__main__':
     corpus = NarouCorpus()
-
+    data_dict = corpus.non_seq_data_dict_emb_cossim()
+    train_data_dict, test_data_dict = corpus.dict_train_test_split(data_dict)
+    corpus.get_train_tensor(data_dict=train_data_dict)
