@@ -104,7 +104,11 @@ class KerasExtractiveSummarizer:
         plt.xlabel('epochs')
         plt.show()
 
-    def generate_synopsis(self):
+    def verificate_synopsis_generation(self):
+        """
+        テスト用に作成されたテンソルを用いて実際に出力されるあらすじを確認する
+        :return:
+        """
         test_dict = self.corpus.non_seq_tensor_emb_cossim_to_test()
         test_ncodes = test_dict.keys()
         synopsis_sentence_count = 8
@@ -116,7 +120,18 @@ class KerasExtractiveSummarizer:
             Y = test_dict[test_ncode]['Y']
             Y_pred = self.trained_model.predict(X)
             mse = mean_squared_error(Y, Y_pred)
+
+            # 本文全文に付与された値と正解のcos類似度を出力
             print('mean squared error = {}'.format(mse))
+            for i, pred in enumerate(Y_pred):
+                print(contents_lines[i])
+                print('prediction: {:.3f}'.format(float(pred)))
+                print('correct similarity: {:.3f}'.format(Y[i]))
+                print('\n')
+
+            # 付与された値が高い順に文を出力
+            # すなわち実際に生成されるあらすじを出力する
+            print('-' * 100)
             similar_sentence_indexes = np.argpartition(-Y_pred.T,
                                                    synopsis_sentence_count)[0][:synopsis_sentence_count]
             appear_ordered = np.sort(similar_sentence_indexes)
@@ -125,22 +140,13 @@ class KerasExtractiveSummarizer:
                 print('similarity: {}'.format(Y_pred[sentence_index][0]))
                 print('correct siilarity: {}'.format(Y[sentence_index]))
                 print('\n')
-            higher_similarity_indexes = np.argpartition(-Y,
-                                                        synopsis_sentence_count)[:synopsis_sentence_count]
-            appear_ordered = np.sort(higher_similarity_indexes)
-            print('-' * 100)
-            for sentence_index in appear_ordered:
-                print(contents_lines[sentence_index])
-                print('similarity: {}'.format(Y[sentence_index]))
-                print('\n')
-
 
 if __name__ == '__main__':
     summarizer = KerasExtractiveSummarizer()
     # summarizer.fit()
     # summarizer.evaluate_mse()
     # summarizer.show_training_process()
-    summarizer.generate_synopsis()
+    summarizer.verificate_synopsis_generation()
 
 
 

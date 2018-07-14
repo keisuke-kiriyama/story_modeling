@@ -20,8 +20,8 @@ class NarouCorpus:
         self.meta_file_paths = [os.path.join(self.novel_meta_dir_path, file_name) for file_name in os.listdir(self.novel_meta_dir_path) if not file_name == '.DS_Store']
         self.test_contents_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'contents_test')
         self.test_meta_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'meta_test')
-        self.non_seq_tensor_emb_cossim_data_X_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'non_seq_tensors_emb_cossim_X.txt')
-        self.non_seq_tensor_emb_cossim_data_Y_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'non_seq_tensors_emb_cossim_Y.txt')
+        self.non_seq_tensor_emb_cossim_data_X_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'non_seq_tensors_emb_cossim_X_small.txt')
+        self.non_seq_tensor_emb_cossim_data_Y_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'non_seq_tensors_emb_cossim_Y_small.txt')
 
         # MODELS
         self.word_embedding_model = self.load_embedding_model()
@@ -308,8 +308,7 @@ class NarouCorpus:
             test_novel_dict[test_contents_ncode] = per_novel_dict
         return test_novel_dict
 
-
 if __name__ == '__main__':
     corpus = NarouCorpus()
-    # corpus.non_seq_tensor_emb_cossim(tensor_refresh=True)
+    corpus.non_seq_tensor_emb_cossim(tensor_refresh=True)
 
