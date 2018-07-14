@@ -25,9 +25,9 @@ class KerasExtractiveSummarizer:
         # TRAINING DATA
         self.X, self.Y = self.corpus.non_seq_tensor_emb_cossim()
         self.X_train, self.X_test, self.Y_train, self.Y_test = \
-            train_test_split(self.X, self.Y, test_size=0.1)
+            train_test_split(self.X, self.Y, test_size=0.0)
         self.X_train, self.X_validation, self.Y_train, self.Y_validation = \
-            train_test_split(self.X_train, self.Y_train, test_size=0.1)
+            train_test_split(self.X_train, self.Y_train, test_size=0.0)
 
         # DNN MODEL PROPERTY
         self.n_in = self.corpus.sentence_vector_size
@@ -115,7 +115,6 @@ class KerasExtractiveSummarizer:
         for test_ncode in test_ncodes:
             print('[INFO] test ncode: {}'.format(test_ncode))
             contents_lines = self.corpus.get_contents_lines(ncode=test_ncode, is_test_data=True)
-            synopsis_lines = self.corpus.get_synopsis_lines(ncode=test_ncode, is_test_data=True)
             X = test_dict[test_ncode]['X']
             Y = test_dict[test_ncode]['Y']
             Y_pred = self.trained_model.predict(X)
@@ -143,10 +142,7 @@ class KerasExtractiveSummarizer:
 
 if __name__ == '__main__':
     summarizer = KerasExtractiveSummarizer()
-    # summarizer.fit()
-    # summarizer.evaluate_mse()
-    # summarizer.show_training_process()
-    summarizer.verificate_synopsis_generation()
-
-
-
+    summarizer.fit()
+    summarizer.evaluate_mse()
+    summarizer.show_training_process()
+    # summarizer.verificate_synopsis_generation()
