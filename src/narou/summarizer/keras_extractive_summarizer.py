@@ -25,7 +25,9 @@ class KerasExtractiveSummarizer:
         # TRAINING DATA
         self.data_dict = self.corpus.non_seq_data_dict_emb_cossim(tensor_refresh=False)
         self.training_data_dict, self.test_data_dict = self.corpus.dict_train_test_split(self.data_dict, test_size=0.2)
-        self.X_train, self.Y_train = self.corpus.get_train_tensor(data_dict=self.training_data_dict)
+        self.X_train, self.Y_train = self.corpus.data_dict_to_tensor(data_dict=self.training_data_dict)
+        self.X_train, self.X_validation, self.Y_train, self.Y_validation = train_test_split(self.X_train, self.Y_train, test_size=0.2)
+        self.X_test, self.Y_test = self.corpus.data_dict_to_tensor(data_dict=self.test_data_dict)
 
         # DNN MODEL PROPERTY
         self.n_in = self.corpus.sentence_vector_size
@@ -73,6 +75,7 @@ class KerasExtractiveSummarizer:
 
         hist = model.fit(self.X_train, self.Y_train, epochs=epochs,
                          batch_size=batch_size,
+                         validation_data=(self.X_validation, self.Y_validation),
                          callbacks=[early_stopping])
         model.save(self.trained_model_path)
         self.trained_model = model
@@ -106,14 +109,13 @@ class KerasExtractiveSummarizer:
         テスト用に作成されたテンソルを用いて実際に出力されるあらすじを確認する
         :return:
         """
-        test_dict = self.corpus.non_seq_tensor_emb_cossim_to_test()
-        test_ncodes = test_dict.keys()
+        test_ncodes = self.test_data_dict.keys()
         synopsis_sentence_count = 8
         for test_ncode in test_ncodes:
             print('[INFO] test ncode: {}'.format(test_ncode))
-            contents_lines = self.corpus.get_contents_lines(ncode=test_ncode, is_test_data=True)
-            X = test_dict[test_ncode]['X']
-            Y = test_dict[test_ncode]['Y']
+            contents_lines = self.corpus.get_contents_lines(ncode=test_ncode, is_test_data=False)
+            X = self.test_data_dict[test_ncode]['X']
+            Y = self.test_data_dict[test_ncode]['Y']
             Y_pred = self.trained_model.predict(X)
             mse = mean_squared_error(Y, Y_pred)
 
@@ -142,4 +144,4 @@ if __name__ == '__main__':
     summarizer.fit()
     summarizer.evaluate_mse()
     summarizer.show_training_process()
-    # summarizer.verificate_synopsis_generation()
+    summarizer.verificate_synopsis_generation()

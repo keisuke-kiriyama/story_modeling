@@ -320,9 +320,9 @@ class NarouCorpus:
             joblib.dump(test_ncodes, test_f, compress=3)
         return train_data, test_data
 
-    def get_train_tensor(self, data_dict):
+    def data_dict_to_tensor(self, data_dict):
         """
-        訓練データの辞書を訓練用テンソルに変換
+        データの辞書をまとめてテンソルに変換
         :param data_dict: dict
         {
         ncode:
@@ -345,4 +345,4 @@ if __name__ == '__main__':
     corpus = NarouCorpus()
     data_dict = corpus.non_seq_data_dict_emb_cossim()
     train_data_dict, test_data_dict = corpus.dict_train_test_split(data_dict)
-    corpus.get_train_tensor(data_dict=train_data_dict)
+    corpus.data_dict_to_tensor(data_dict=train_data_dict)
