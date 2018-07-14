@@ -18,10 +18,9 @@ class NarouCorpus:
         self.novel_meta_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'meta_small')
         self.contents_file_paths = [os.path.join(self.novel_contents_dir_path, file_name) for file_name in os.listdir(self.novel_contents_dir_path) if not file_name == '.DS_Store']
         self.meta_file_paths = [os.path.join(self.novel_meta_dir_path, file_name) for file_name in os.listdir(self.novel_meta_dir_path) if not file_name == '.DS_Store']
-        self.test_contents_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'contents_test')
-        self.test_meta_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'meta_test')
-        self.non_seq_tensor_emb_cossim_data_X_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'non_seq_tensors_emb_cossim_X.txt')
-        self.non_seq_tensor_emb_cossim_data_Y_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'non_seq_tensors_emb_cossim_Y.txt')
+        self.non_seq_data_dict_emb_cossim_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'non_seq_data_dict_emb_cossim_small.txt')
+        self.non_seq_data_dict_emb_cossim_train_ncode_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'non_seq_data_dict_emb_cossim_train_ncode.txt')
+        self.non_seq_data_dict_emb_cossim_test_ncode_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'non_seq_data_dict_emb_cossim_test_ncode.txt')
 
         # MODELS
         self.word_embedding_model = self.load_embedding_model()
@@ -189,16 +188,14 @@ class NarouCorpus:
         word_vectors = np.array([self.word_embedding_model.__dict__['wv'][word] for word in wakati_sentence])
         return np.average(word_vectors, axis=0)
 
-    def load_non_seq_tensors_emb_cossim_data(self):
+    def load_non_seq_data_dict_emb_cossim_data(self):
         """
         非系列情報の文ベクトルとコサイン類似度のTensorを読み込む
         """
         print('loading tensor data...')
-        with open(self.non_seq_tensor_emb_cossim_data_X_path, 'rb') as Xf:
-            X = joblib.load(Xf)
-        with open(self.non_seq_tensor_emb_cossim_data_Y_path, 'rb') as Yf:
-            Y = joblib.load(Yf)
-        return X, Y
+        with open(self.non_seq_data_dict_emb_cossim_path, 'rb') as f:
+            data_dict = joblib.load(f)
+        return data_dict
 
     def create_non_seq_tensors_emb_cossim_per_novel(self, ncode, is_test_data=False):
         """
@@ -238,58 +235,10 @@ class NarouCorpus:
         return X_per_novel, Y_per_novel
 
 
-    def create_non_seq_tensors_emb_cossim(self):
+    def create_non_seq_data_dict_emb_cossim(self):
         """
         非系列情報の文ベクトルとコサイン類似度のTensorを構築
         10ファイルごとにテンソルを保存
-        """
-        X = np.empty((0, self.sentence_vector_size), float)
-        Y = np.array([])
-        for file_index, contents_file_path in enumerate(self.contents_file_paths):
-            print('[INFO] num of processed novel count: {}'.format(file_index))
-            ncode = self.ncode_from_contents_file_path(contents_file_path)
-            X_per_novel, Y_per_novel = self.create_non_seq_tensors_emb_cossim_per_novel(ncode=ncode)
-            X = np.append(X, X_per_novel, axis=0)
-            Y = np.append(Y, Y_per_novel)
-
-            # 100作品ごとにTensorを保存する
-            if file_index % 10 == 0:
-                print('saving tensor...')
-                with open(self.non_seq_tensor_emb_cossim_data_X_path, 'wb') as Xf:
-                    joblib.dump(X, Xf, compress=3)
-                with open(self.non_seq_tensor_emb_cossim_data_Y_path, 'wb') as Yf:
-                    joblib.dump(Y, Yf, compress=3)
-
-        print('saving tensor...')
-        with open(self.non_seq_tensor_emb_cossim_data_X_path, 'wb') as Xf:
-            joblib.dump(X, Xf, compress=3)
-        with open(self.non_seq_tensor_emb_cossim_data_Y_path, 'wb') as Yf:
-            joblib.dump(Y, Yf, compress=3)
-        return X, Y
-
-
-    def non_seq_tensor_emb_cossim(self, tensor_refresh=False):
-        """
-        非系列情報と仮定された文ベクトルとコサイン類似度のTensorを返却
-        X. 全小説の全文をベクトルで表した２次元ベクトル
-        - 文ベクトルは文中の単語ベクトルの平均ベクトル
-        - shape = (小説数*文数, 文ベクトルサイズ)
-        Y. 全小説の全文のコサイン類似度を要素とする１次元ベクトル
-        :param tensor_refresh: bool
-        :return: (np.array, np.array)
-        """
-        is_tensor_data_exist = os.path.isfile(self.non_seq_tensor_emb_cossim_data_X_path)\
-                               and os.path.isfile(self.non_seq_tensor_emb_cossim_data_Y_path)
-        if is_tensor_data_exist and not tensor_refresh:
-            X, Y = self.load_non_seq_tensors_emb_cossim_data()
-        else:
-            X, Y = self.create_non_seq_tensors_emb_cossim()
-        return X, Y
-
-    def non_seq_tensor_emb_cossim_to_test(self):
-        """
-        テスト用の小説のテンソルを返す
-        Xに小説全文の文ベクトル,Yにあらすじ文との最大コサイン類似度
         :return: dict
         {
         ncode:
@@ -299,17 +248,101 @@ class NarouCorpus:
             }
         }
         """
-        test_contents_file_paths = [os.path.join(self.test_contents_dir_path, file_name) for file_name in os.listdir(self.test_contents_dir_path) if not file_name == '.DS_Store']
-        test_contents_ncodes = [self.ncode_from_contents_file_path(file_path=file_path) for file_path in test_contents_file_paths]
-        test_novel_dict = {}
-        for test_contents_ncode in test_contents_ncodes:
-            X, Y = self.create_non_seq_tensors_emb_cossim_per_novel(ncode=test_contents_ncode, is_test_data=True)
-            per_novel_dict = {'X': X, 'Y': Y}
-            test_novel_dict[test_contents_ncode] = per_novel_dict
-        return test_novel_dict
+        data_dict = dict()
+        for file_index, contents_file_path in enumerate(self.contents_file_paths):
+            print('[INFO] num of processed novel count: {}'.format(file_index))
+            ncode = self.ncode_from_contents_file_path(contents_file_path)
+            X_per_novel, Y_per_novel = self.create_non_seq_tensors_emb_cossim_per_novel(ncode=ncode)
+            per_novel_dict = {'X': X_per_novel, 'Y': Y_per_novel}
+            data_dict[ncode] = per_novel_dict
+
+            # 100作品ごとにdictを保存する
+            if file_index % 10 == 0:
+                print('saving tensor...')
+                with open(self.non_seq_data_dict_emb_cossim_path, 'wb') as f:
+                    joblib.dump(data_dict, f, compress=3)
+        print('saving tensor...')
+        with open(self.non_seq_data_dict_emb_cossim_path, 'wb') as f:
+            joblib.dump(data_dict, f, compress=3)
+        return data_dict
+
+    def non_seq_data_dict_emb_cossim(self, tensor_refresh=False):
+        """
+        非系列情報と仮定された文ベクトルとコサイン類似度のNコードをキーとする辞書を返却
+        X. 全小説の全文をベクトルで表した２次元ベクトル
+        - 文ベクトルは文中の単語ベクトルの平均ベクトル
+        - shape = (小説数*文数, 文ベクトルサイズ)
+        Y. 全小説の全文のコサイン類似度を要素とする１次元ベクトル
+        :param tensor_refresh: bool
+        :return: dict
+        {
+        ncode:
+            {
+            X: np.array,
+            Y: np.array
+            }
+        }
+        """
+        is_tensor_data_exist = os.path.isfile(self.non_seq_data_dict_emb_cossim_path)\
+                               and os.path.isfile(self.non_seq_data_dict_emb_cossim_path)
+        if is_tensor_data_exist and not tensor_refresh:
+            data_dict = self.load_non_seq_data_dict_emb_cossim_data()
+        else:
+            data_dict = self.create_non_seq_data_dict_emb_cossim()
+        return data_dict
+
+    def dict_train_test_split(self, data_dict, splited_refresh=False, test_size=0.2):
+        """
+        TrainとTestに分割されたデータを返す
+        :param data_dict: dict
+        分割する辞書データ
+        :param splited_refresh: Bool
+        分割する際のNコードをリフレッシュするか
+        :param test_size: float
+        テストデータの割合
+        :return: (dict, dict)
+        """
+        is_ncodes_file_exists = os.path.isfile(self.non_seq_data_dict_emb_cossim_train_ncode_path) \
+                                and os.path.isfile(self.non_seq_data_dict_emb_cossim_test_ncode_path)
+        if is_ncodes_file_exists and not splited_refresh:
+            with open(self.non_seq_data_dict_emb_cossim_train_ncode_path, 'rb') as train_f:
+                train_ncodes = joblib.load(train_f)
+            with open(self.non_seq_data_dict_emb_cossim_test_ncode_path, 'rb') as test_f:
+                test_ncodes = joblib.load(test_f)
+        else:
+            train_ncodes = list(data_dict.keys())[:int(len(data_dict) * (1 - test_size))]
+            test_ncodes = list(data_dict.keys())[int(len(data_dict) * (1 - test_size)):]
+        train_data = {ncode: data_dict[ncode] for ncode in train_ncodes}
+        test_data = {ncode: data_dict[ncode] for ncode in test_ncodes}
+        with open(self.non_seq_data_dict_emb_cossim_train_ncode_path, 'wb') as train_f:
+            joblib.dump(train_ncodes, train_f, compress=3)
+        with open(self.non_seq_data_dict_emb_cossim_test_ncode_path, 'wb') as test_f:
+            joblib.dump(test_ncodes, test_f, compress=3)
+        return train_data, test_data
+
+    def data_dict_to_tensor(self, data_dict):
+        """
+        データの辞書をまとめてテンソルに変換
+        :param data_dict: dict
+        {
+        ncode:
+            {
+            X: np.array,
+            Y: np.array
+            }
+        }
+        :return: (np.array, np.array)
+        """
+        X_train = np.empty((0, self.sentence_vector_size), float)
+        Y_train = np.array([])
+        for data in data_dict.values():
+            X_train = np.append(X_train, data['X'], axis=0)
+            Y_train = np.append(Y_train, data['Y'])
+        return X_train, Y_train
 
 
 if __name__ == '__main__':
     corpus = NarouCorpus()
-    # corpus.non_seq_tensor_emb_cossim(tensor_refresh=True)
-
+    data_dict = corpus.non_seq_data_dict_emb_cossim()
+    train_data_dict, test_data_dict = corpus.dict_train_test_split(data_dict)
+    corpus.data_dict_to_tensor(data_dict=train_data_dict)
