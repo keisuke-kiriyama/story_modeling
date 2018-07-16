@@ -4,8 +4,7 @@ from keras.models import Sequential, load_model
 from keras.layers.core import Dense, Activation, Dropout
 from keras.layers.normalization import BatchNormalization
 from keras.optimizers import Adam
-from keras.callbacks import EarlyStopping
-from keras.utils.generic_utils import get_custom_objects
+from keras.callbacks import EarlyStopping, ModelCheckpoint
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 import matplotlib.pyplot as plt
@@ -69,15 +68,22 @@ class KerasExtractiveSummarizer:
         Feed Foward Neural Netを用いた訓練
         :return:
         """
-        early_stopping = EarlyStopping(monitor='val_loss', patience=10, verbose=1)
+        print('training data count: {}'.format(len(self.X_train)))
         epochs = 1000
         batch_size = 100
         model = self.inference()
 
+        early_stopping = EarlyStopping(monitor='val_loss',
+                                       patience=10,
+                                       verbose=1)
+        checkpoint = ModelCheckpoint(filepath=os.path.join(settings.NAROU_MODEL_DIR_PATH,
+                                                           'trained_model',
+                                                           'model_{epoch:02d}_vloss{val_loss:.4f}.hdf5'),
+                                     save_best_only=True)
         hist = model.fit(self.X_train, self.Y_train, epochs=epochs,
                          batch_size=batch_size,
                          validation_data=(self.X_validation, self.Y_validation),
-                         callbacks=[early_stopping])
+                         callbacks=[early_stopping, checkpoint])
         model.save(self.trained_model_path)
         self.trained_model = model
         self.training_hist = hist
@@ -144,7 +150,6 @@ class KerasExtractiveSummarizer:
         print('precision: {}'.format(scores['rouge-l']['r']))
         print('recall: {}'.format(scores['rouge-l']['p']))
 
-
     def show_training_process(self):
         """
         訓練過程の損失関数の値をプロット
@@ -193,7 +198,7 @@ class KerasExtractiveSummarizer:
 
 if __name__ == '__main__':
     summarizer = KerasExtractiveSummarizer()
-    # summarizer.fit()
+    summarizer.fit()
     summarizer.eval()
     # summarizer.show_training_process()
     # summarizer.verificate_synopsis_generation()

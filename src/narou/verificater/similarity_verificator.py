@@ -248,7 +248,7 @@ class SynopsisSentenceVerificator:
         #     print(contents_line_max_simirality[sentence_index])
         # 全文の類似度を確認
         for contents_line, similarity in zip(contents_lines, contents_line_max_simirality):
-            print(contents_line)
+            print('- ' + contents_line.replace('\u3000',''))
             print(similarity)
 
 if __name__ == '__main__':
@@ -256,4 +256,4 @@ if __name__ == '__main__':
     # verificator.create_doc_embedding_model()
     # verificator.verificate_synopsis_vector_similarity('n0002ei')
     # verificator.verificate_synopsis_BoW_simirality('n9974br')
-    verificator.sim_generate_synopsis_verification('n9974br', 8)
+    verificator.sim_generate_synopsis_verification('n0064cq', 8)

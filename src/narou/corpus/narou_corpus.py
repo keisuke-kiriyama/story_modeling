@@ -14,11 +14,11 @@ class NarouCorpus:
 
     def __init__(self):
         # PATHS
-        self.novel_contents_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'contents_small')
-        self.novel_meta_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'meta_small')
+        self.novel_contents_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'contents')
+        self.novel_meta_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'meta')
         self.contents_file_paths = [os.path.join(self.novel_contents_dir_path, file_name) for file_name in os.listdir(self.novel_contents_dir_path) if not file_name == '.DS_Store']
         self.meta_file_paths = [os.path.join(self.novel_meta_dir_path, file_name) for file_name in os.listdir(self.novel_meta_dir_path) if not file_name == '.DS_Store']
-        self.non_seq_data_dict_emb_cossim_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'non_seq_data_dict_emb_cossim_small.txt')
+        self.non_seq_data_dict_emb_cossim_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'non_seq_data_dict_emb_cossim.txt')
         self.non_seq_data_dict_emb_cossim_train_ncode_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'non_seq_data_dict_emb_cossim_train_ncode.txt')
         self.non_seq_data_dict_emb_cossim_test_ncode_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'non_seq_data_dict_emb_cossim_test_ncode.txt')
 
