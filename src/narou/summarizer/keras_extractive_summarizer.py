@@ -17,7 +17,7 @@ class KerasExtractiveSummarizer:
 
     def __init__(self):
         # PATH
-        self.trained_model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'keras_extractive_summarizer_model.hdf5')
+        self.trained_model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'trained_model', 'model_54_vloss0.0030.hdf5')
 
         # NAROU CORPUS
         self.corpus = NarouCorpus()
@@ -84,7 +84,6 @@ class KerasExtractiveSummarizer:
                          batch_size=batch_size,
                          validation_data=(self.X_validation, self.Y_validation),
                          callbacks=[early_stopping, checkpoint])
-        model.save(self.trained_model_path)
         self.trained_model = model
         self.training_hist = hist
 
@@ -124,19 +123,52 @@ class KerasExtractiveSummarizer:
         mse = mean_squared_error(self.Y_test, Y_pred)
         print("[INFO] MEAN SQUARED ERROR : %.4f" % (mse ** 0.5))
 
-        hyps = []
-        refs = []
+        # PROPOSED
+        refs = [] # 参照要約
+        opt = [] # 類似度上位から文選択(理論上の上限値)
+        hyps = [] # 提案手法要約
         for ncode, test_data in self.test_data_dict.items():
+            # refs
             correct_synopsis_lines = self.corpus.get_synopsis_lines(ncode=ncode)
             correct_synopsis = ''.join(correct_synopsis_lines)
             wakati_correct_synopsis = self.corpus.wakati(correct_synopsis)
             refs.append(wakati_correct_synopsis)
+
+            # opt
+            contents_lines = self.corpus.get_contents_lines(ncode=ncode)
+            similar_sentence_indexes = np.argpartition(-test_data['Y'],
+                                                   len(correct_synopsis_lines))[:len(correct_synopsis_lines)]
+            appear_ordered = np.sort(similar_sentence_indexes)
+            opt_lines = [contents_lines[index] for index in appear_ordered]
+            opt_synopsis = ''.join(opt_lines)
+            wakati_opt_synopsis = self.corpus.wakati(opt_synopsis)
+            opt.append(wakati_opt_synopsis)
+
+            # proposed
             predict_synopsis = self.generate_synopsis(ncode=ncode, sentence_count=len(correct_synopsis_lines))
             wakati_predict_synopsis = self.corpus.wakati(predict_synopsis)
             hyps.append(wakati_predict_synopsis)
 
         rouge = Rouge()
+        # OPTIMAL METHOD EVALUATION
+        scores = rouge.get_scores(opt, refs, avg=True)
+        print('[OPTIMAL]')
+        print('[ROUGE-1]')
+        print('f-measure: {}'.format(scores['rouge-1']['f']))
+        print('precision: {}'.format(scores['rouge-1']['r']))
+        print('recall: {}'.format(scores['rouge-1']['p']))
+        print('[ROUGE-2]')
+        print('f-measure: {}'.format(scores['rouge-2']['f']))
+        print('precision: {}'.format(scores['rouge-2']['r']))
+        print('recall: {}'.format(scores['rouge-2']['p']))
+        print('[ROUGE-L]')
+        print('f-measure: {}'.format(scores['rouge-l']['f']))
+        print('precision: {}'.format(scores['rouge-l']['r']))
+        print('recall: {}'.format(scores['rouge-l']['p']))
+
+        # PROPOSED
         scores = rouge.get_scores(hyps, refs, avg=True)
+        print('[PROPOSED METHOD EVALUATION]')
         print('[ROUGE-1]')
         print('f-measure: {}'.format(scores['rouge-1']['f']))
         print('precision: {}'.format(scores['rouge-1']['r']))
@@ -198,7 +230,7 @@ class KerasExtractiveSummarizer:
 
 if __name__ == '__main__':
     summarizer = KerasExtractiveSummarizer()
-    summarizer.fit()
+    # summarizer.fit()
     summarizer.eval()
     # summarizer.show_training_process()
     # summarizer.verificate_synopsis_generation()

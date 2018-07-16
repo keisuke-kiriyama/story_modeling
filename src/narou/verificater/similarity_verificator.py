@@ -7,6 +7,7 @@ import MeCab
 from gensim.models.doc2vec import Doc2Vec
 from gensim.models.doc2vec import LabeledSentence
 from gensim import corpora, matutils
+from rouge import Rouge
 from src.util import settings
 
 
@@ -241,19 +242,30 @@ class SynopsisSentenceVerificator:
             contents_line_max_simirality = np.append(contents_line_max_simirality, max_sim)
         similar_sentence_indexes = np.argpartition(-contents_line_max_simirality,
                                                    sentence_count)[:sentence_count]
-        # appear_ordered = np.sort(similar_sentence_indexes)
+        appear_ordered = np.sort(similar_sentence_indexes)
         # 類似度上位の文を繋げたあらすじを確認
-        # for sentence_index in appear_ordered:
-        #     print(contents_lines[sentence_index])
-        #     print(contents_line_max_simirality[sentence_index])
+        for sentence_index in appear_ordered:
+            print(contents_lines[sentence_index])
+            print(contents_line_max_simirality[sentence_index])
         # 全文の類似度を確認
-        for contents_line, similarity in zip(contents_lines, contents_line_max_simirality):
-            print('- ' + contents_line.replace('\u3000',''))
-            print(similarity)
+        # for contents_line, similarity in zip(contents_lines, contents_line_max_simirality):
+        #     print('- ' + contents_line.replace('\u3000',''))
+        #     print(similarity)
+
+        # 正解のあらすじと類似度により作成されたあらすじ間のRougeスコアを求める
+        # rouge = Rouge()
+        # similar_synopsis = ''.join([contents_lines[index].replace('\u3000', '') for index in appear_ordered])
+        # correct_synopsis = ''.join(synopsis_lines).replace('\n', '。')
+        # wakati_similar_synopsis = self.wakati(similar_synopsis)
+        # wakati_correct_synopsis = self.wakati(correct_synopsis)
+        # score = rouge.get_scores(wakati_similar_synopsis, wakati_correct_synopsis)
+        # print(similar_synopsis)
+        # print('\n')
+        # print(correct_synopsis)
 
 if __name__ == '__main__':
     verificator = SynopsisSentenceVerificator()
     # verificator.create_doc_embedding_model()
     # verificator.verificate_synopsis_vector_similarity('n0002ei')
     # verificator.verificate_synopsis_BoW_simirality('n9974br')
-    verificator.sim_generate_synopsis_verification('n0064cq', 8)
+    verificator.sim_generate_synopsis_verification('n0013da', 2)

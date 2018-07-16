@@ -341,6 +341,7 @@ class NarouCorpus:
         return X_train, Y_train
 
 
+
 if __name__ == '__main__':
     corpus = NarouCorpus()
     data_dict = corpus.non_seq_data_dict_emb_cossim()
