@@ -164,8 +164,8 @@ class SynopsisSentenceVerificator:
         wakati_similar_synopsis = self.corpus.wakati(syn)
         wakati_correct_synopsis = self.corpus.wakati(ref)
         score = rouge.get_scores(wakati_similar_synopsis, wakati_correct_synopsis)
-        print('[CORRECT SYNOPSIS]: {}'.format(syn))
-        print('[SIMILAR SYNOPSIS]: {}'.format(ref))
+        print('[CORRECT SYNOPSIS]: {}'.format(ref))
+        print('[SIMILAR SYNOPSIS]: {}'.format(syn))
         print('[ROUGE-1]')
         print('f-measure: {}'.format(score[0]['rouge-1']['f']))
         print('precision: {}'.format(score[0]['rouge-1']['r']))
@@ -185,4 +185,7 @@ if __name__ == '__main__':
     # verificator.create_doc_embedding_model()
     # verificator.verificate_synopsis_vector_similarity('n0002ei')
     # verificator.verificate_synopsis_BoW_simirality('n9974br')
-    # verificator.verificate_similar_synopsis_rouge('n9974br', 2)
+    verificator.verificate_similar_synopsis_rouge('n0013da', 2)
+    # syn = 'ここはとある池。池のそこではちんこと女神様が仲良く暮らしておりました。ポストの中には、ピザ屋のチラシが入っていました。'
+    # ref = 'ちんこと女神様は池のそこで仲良く暮らしています。そんなある冬の日、池のポストにピザのチラシが投函されていました'
+    # verificator.show_rouge_score(syn=syn, ref=ref)

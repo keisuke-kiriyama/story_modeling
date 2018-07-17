@@ -126,6 +126,7 @@ class KerasExtractiveSummarizer:
         # PROPOSED
         refs = [] # 参照要約
         opt = [] # 類似度上位から文選択(理論上の上限値)
+        lead = [] # 文章の先頭から数文選択
         hyps = [] # 提案手法要約
         for ncode, test_data in self.test_data_dict.items():
             # refs
@@ -144,13 +145,19 @@ class KerasExtractiveSummarizer:
             wakati_opt_synopsis = self.corpus.wakati(opt_synopsis)
             opt.append(wakati_opt_synopsis)
 
+            # lead
+            lead_synopsis = ''.join([self.corpus.cleaning(line) for line in contents_lines[:len(correct_synopsis_lines)]])
+            wakati_lead_synopsis = self.corpus.wakati(lead_synopsis)
+            print(wakati_lead_synopsis)
+            lead.append(wakati_lead_synopsis)
+
             # proposed
             predict_synopsis = self.generate_synopsis(ncode=ncode, sentence_count=len(correct_synopsis_lines))
             wakati_predict_synopsis = self.corpus.wakati(predict_synopsis)
             hyps.append(wakati_predict_synopsis)
 
         rouge = Rouge()
-        # OPTIMAL METHOD EVALUATION
+        # OPTIMAL EVALUATION
         scores = rouge.get_scores(opt, refs, avg=True)
         print('[OPTIMAL]')
         print('[ROUGE-1]')
@@ -166,7 +173,23 @@ class KerasExtractiveSummarizer:
         print('precision: {}'.format(scores['rouge-l']['r']))
         print('recall: {}'.format(scores['rouge-l']['p']))
 
-        # PROPOSED
+        # LEAD EVALUATION
+        scores = rouge.get_scores(lead, refs, avg=True)
+        print('[LEAD]')
+        print('[ROUGE-1]')
+        print('f-measure: {}'.format(scores['rouge-1']['f']))
+        print('precision: {}'.format(scores['rouge-1']['r']))
+        print('recall: {}'.format(scores['rouge-1']['p']))
+        print('[ROUGE-2]')
+        print('f-measure: {}'.format(scores['rouge-2']['f']))
+        print('precision: {}'.format(scores['rouge-2']['r']))
+        print('recall: {}'.format(scores['rouge-2']['p']))
+        print('[ROUGE-L]')
+        print('f-measure: {}'.format(scores['rouge-l']['f']))
+        print('precision: {}'.format(scores['rouge-l']['r']))
+        print('recall: {}'.format(scores['rouge-l']['p']))
+        
+        # PROPOSED EVALUATION
         scores = rouge.get_scores(hyps, refs, avg=True)
         print('[PROPOSED METHOD EVALUATION]')
         print('[ROUGE-1]')
