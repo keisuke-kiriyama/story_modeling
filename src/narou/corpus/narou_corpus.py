@@ -18,9 +18,10 @@ class NarouCorpus:
         self.novel_meta_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'meta')
         self.contents_file_paths = [os.path.join(self.novel_contents_dir_path, file_name) for file_name in os.listdir(self.novel_contents_dir_path) if not file_name == '.DS_Store']
         self.meta_file_paths = [os.path.join(self.novel_meta_dir_path, file_name) for file_name in os.listdir(self.novel_meta_dir_path) if not file_name == '.DS_Store']
-        self.non_seq_data_dict_emb_cossim_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'non_seq_data_dict_emb_cossim.txt')
-        self.non_seq_data_dict_emb_cossim_train_ncode_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'non_seq_data_dict_emb_cossim_train_ncode.txt')
-        self.non_seq_data_dict_emb_cossim_test_ncode_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'non_seq_data_dict_emb_cossim_test_ncode.txt')
+        self.non_seq_data_dict_emb_cossim_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'non_seq_data_dict_emb_cossim','non_seq_data_dict_emb_cossim.txt')
+        self.non_seq_data_dict_emb_cossim_train_ncode_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'non_seq_data_dict_emb_cossim','non_seq_data_dict_emb_cossim_train_ncode.txt')
+        self.non_seq_data_dict_emb_cossim_test_ncode_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'non_seq_data_dict_emb_cossim','non_seq_data_dict_emb_cossim_test_ncode.txt')
+        self.non_seq_data_dict_emb_one_of_k_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'non_seq_data_dict_emb_one_of_k', 'non_seq_data_dict_emb_one_of_k.txt')
 
         # MODELS
         self.word_embedding_model = self.load_embedding_model()
@@ -47,12 +48,12 @@ class NarouCorpus:
         wakati = m.parse(line).replace('\n', '')
         return wakati
 
-    def create_contents_file_path(self, ncode, is_test_data=False):
-        dir_path = self.novel_contents_dir_path if not is_test_data else self.test_contents_dir_path
+    def create_contents_file_path(self, ncode):
+        dir_path = self.novel_contents_dir_path
         return os.path.join(dir_path, ncode + '.json')
 
-    def create_meta_file_path(self, ncode, is_test_data=False):
-        dir_path = self.novel_meta_dir_path if not is_test_data else self.test_meta_dir_path
+    def create_meta_file_path(self, ncode):
+        dir_path = self.novel_meta_dir_path
         return os.path.join(dir_path, ncode+'_meta.json')
 
     def cleaning(self, line):
@@ -74,27 +75,27 @@ class NarouCorpus:
         """
         return [line for line in re.split('[。？]', synopsis) if not line == '']
 
-    def get_contents_lines(self, ncode, is_test_data=False):
+    def get_contents_lines(self, ncode):
         """
         本文全文のリストを返却
         :param contents_file_path: str
         :return: list
         """
-        contents_file_path = self.create_contents_file_path(ncode=ncode, is_test_data=is_test_data)
-        if not is_test_data and not contents_file_path in self.contents_file_paths:
+        contents_file_path = self.create_contents_file_path(ncode=ncode)
+        if not contents_file_path in self.contents_file_paths:
             print('nothing ncode')
             return
         contents_lines = [line for line in list(chain.from_iterable(self.load(contents_file_path)['contents'])) if not self.cleaning(line) == '']
         return contents_lines
 
-    def get_synopsis_lines(self, ncode, is_test_data=False):
+    def get_synopsis_lines(self, ncode):
         """
         あらすじの文のリストを返却
         :param synopsis_file_path: str
         :return: list
         """
-        meta_file_path = self.create_meta_file_path(ncode=ncode, is_test_data=is_test_data)
-        if not is_test_data and not meta_file_path in self.meta_file_paths:
+        meta_file_path = self.create_meta_file_path(ncode=ncode)
+        if not meta_file_path in self.meta_file_paths:
             print('nothing ncode')
             return
         synopsis = self.load(meta_file_path)['story']
@@ -188,16 +189,21 @@ class NarouCorpus:
         word_vectors = np.array([self.word_embedding_model.__dict__['wv'][word] for word in wakati_sentence])
         return np.average(word_vectors, axis=0)
 
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    X: 文中の単語ベクトルの平均ベクトル
+    Y: 本文全文と最も類似度が高いあらすじ文との類似度
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
     def load_non_seq_data_dict_emb_cossim_data(self):
         """
-        非系列情報の文ベクトルとコサイン類似度のTensorを読み込む
+        非系列情報の文ベクトルとコサイン類似度のを読み込む
         """
         print('loading tensor data...')
         with open(self.non_seq_data_dict_emb_cossim_path, 'rb') as f:
             data_dict = joblib.load(f)
         return data_dict
 
-    def create_non_seq_tensors_emb_cossim_per_novel(self, ncode, is_test_data=False):
+    def create_non_seq_tensors_emb_cossim_per_novel(self, ncode):
         """
         与えられたNコードの小説の文ベクトルとコサイン類似度のTensorを返却
         :param ncode: str
@@ -207,31 +213,31 @@ class NarouCorpus:
         print('[PROCESS NCODE]: {}'.format(ncode))
         X_per_novel = np.empty((0, self.sentence_vector_size), float)
         Y_per_novel = np.array([])
-        contents_lines = self.get_contents_lines(ncode=ncode, is_test_data=is_test_data)
-        synopsis_lines = self.get_synopsis_lines(ncode=ncode, is_test_data=is_test_data)
+        contents_lines = self.get_contents_lines(ncode=ncode)
+        synopsis_lines = self.get_synopsis_lines(ncode=ncode)
         contents_BoW_vectors, synopsis_BoW_vectors = self.get_BoW_vectors(contents_lines=contents_lines, synopsis_lines=synopsis_lines)
         for line_idx, (contents_line, contents_BoW_vector) in enumerate(zip(contents_lines, contents_BoW_vectors)):
-                if line_idx % 30 == 0:
-                    print('{} progress: {:.1f}%'.format(ncode, line_idx / len(contents_lines) * 100))
+            if line_idx % 30 == 0:
+                print('{} progress: {:.1f}%'.format(ncode, line_idx / len(contents_lines) * 100))
 
-                # 本文各文の文ベクトルをX_per_novelに追加
-                try:
-                    sentence_vector = self.get_avg_word_vectors(contents_line)
-                    X_per_novel = np.append(X_per_novel, [sentence_vector], axis=0)
-                except KeyError as err:
-                    print(err)
-                    continue
-                except:
-                    print('[Error] continue to add sentence vectors')
-                    continue
+            # 本文各文の文ベクトルをX_per_novelに追加
+            try:
+                sentence_vector = self.get_avg_word_vectors(contents_line)
+                X_per_novel = np.append(X_per_novel, [sentence_vector], axis=0)
+            except KeyError as err:
+                print(err)
+                continue
+            except:
+                print('[Error] continue to add sentence vectors')
+                continue
 
-                # 各文のあらすじ文との最大cos類似度をY_per_novelに追加
-                max_sim = 0
-                for synopsis_BoW_vector in synopsis_BoW_vectors:
-                    sim = self.cos_sim(contents_BoW_vector, synopsis_BoW_vector)
-                    if sim > max_sim:
-                        max_sim = sim
-                Y_per_novel = np.append(Y_per_novel, max_sim)
+            # 各文のあらすじ文との最大cos類似度をY_per_novelに追加
+            max_sim = 0
+            for synopsis_BoW_vector in synopsis_BoW_vectors:
+                sim = self.cos_sim(contents_BoW_vector, synopsis_BoW_vector)
+                if sim > max_sim:
+                    max_sim = sim
+            Y_per_novel = np.append(Y_per_novel, max_sim)
         return X_per_novel, Y_per_novel
 
 
@@ -283,13 +289,136 @@ class NarouCorpus:
             }
         }
         """
-        is_tensor_data_exist = os.path.isfile(self.non_seq_data_dict_emb_cossim_path)\
-                               and os.path.isfile(self.non_seq_data_dict_emb_cossim_path)
+        is_tensor_data_exist = os.path.isfile(self.non_seq_data_dict_emb_cossim_path)
         if is_tensor_data_exist and not tensor_refresh:
             data_dict = self.load_non_seq_data_dict_emb_cossim_data()
         else:
             data_dict = self.create_non_seq_data_dict_emb_cossim()
         return data_dict
+
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    X: 文中の単語ベクトルの平均ベクトル
+    Y: 本文中の文が各あらすじ文と最も類似しているかをOneHotVectorで表現
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+    def load_non_seq_data_dict_emb_one_of_k(self):
+        """
+        非系列情報の文ベクトルとあらすじ文と対応しているか否かのOneHotVectorの辞書を読み込む
+        """
+        print('loading tensor data...')
+        with open(self.non_seq_data_dict_emb_one_of_k_path, 'rb') as f:
+            data_dict = joblib.load(f)
+        return data_dict
+
+    def create_non_seq_tensors_emb_one_of_k_per_novel(self, ncode, exist_X=None):
+        """
+        与えられたNコードの小説の文ベクトルと本文各文があらすじ文に対応しているかを表現するOneHotVectorを返却
+        :param ncode: str
+        :param exist_X: np.array
+        :return: (np.array, np.array)
+        """
+        print('[PROCESS NCODE]: {}'.format(ncode))
+        X_per_novel = np.empty((0, self.sentence_vector_size), float)
+        contents_lines = self.get_contents_lines(ncode=ncode)
+        synopsis_lines = self.get_synopsis_lines(ncode=ncode)
+        contents_BoW_vectors, synopsis_BoW_vectors = self.get_BoW_vectors(contents_lines=contents_lines, synopsis_lines=synopsis_lines)
+        if not exist_X is None:
+            # すでにXが作られている場合は再度計算は行なわない
+            print('[INFO] reuse X of embedding_cossim')
+            X_per_novel = exist_X
+        else:
+            for line_idx, contents_line in enumerate(contents_lines):
+                if line_idx % 30 == 0:
+                    print('{} progress X: {:.1f}%'.format(ncode, line_idx / len(contents_lines) * 100))
+
+                # 本文各文の文ベクトルをX_per_novelに追加
+                try:
+                    sentence_vector = self.get_avg_word_vectors(contents_line)
+                    X_per_novel = np.append(X_per_novel, [sentence_vector], axis=0)
+                except KeyError as err:
+                    print(err)
+                    continue
+                except:
+                    print('[Error] continue to add sentence vectors')
+                    continue
+
+        Y_per_novel = np.zeros(len(contents_lines))
+        for line_idx, synopsis_BoW_vector in enumerate(synopsis_BoW_vectors):
+            print('{} progress Y: {:.1f}%'.format(ncode, line_idx / len(synopsis_lines) * 100))
+            similarity = [self.cos_sim(contents_BoW_vector, synopsis_BoW_vector) for contents_BoW_vector in contents_BoW_vectors]
+            max_similarity_index = np.argmax(similarity)
+            Y_per_novel[max_similarity_index] = 1
+        return X_per_novel, Y_per_novel
+
+
+    def create_non_seq_data_dict_emb_one_of_k(self, reuse_emb_cossim_X=True):
+        """
+        文ベクトルと各文があらすじ文に対応しているかをOneHotVectorで表したNコードをキーとする辞書を作成
+        :param reuse_emb_cossim_X: bool
+        :return: dict
+        {
+        ncode:
+            {
+            X: np.array,
+            Y: np.array
+            }
+        }
+        """
+        data_dict = dict()
+        if os.path.isfile(self.non_seq_data_dict_emb_cossim_path) and reuse_emb_cossim_X:
+            # emb_cossimデータが存在するのであれば、そのXを再利用する
+            cos_sim_data_dict = self.load_non_seq_data_dict_emb_cossim_data()
+            for file_index, (ncode, value) in enumerate(cos_sim_data_dict.items()):
+                print('[INFO] num of processed novel count: {}'.format(file_index))
+                X_per_novel, Y_per_novel = self.create_non_seq_tensors_emb_one_of_k_per_novel(ncode=ncode, exist_X=value['X'])
+                per_novel_dict = {'X': X_per_novel, 'Y': Y_per_novel}
+                data_dict[ncode] = per_novel_dict
+                # 10作品ごとにdictを保存する
+                if file_index % 10 == 0:
+                    print('saving tensor...')
+                    with open(self.non_seq_data_dict_emb_one_of_k_path, 'wb') as f:
+                        joblib.dump(data_dict, f, compress=3)
+        else:
+            for file_index, contents_file_path in enumerate(self.contents_file_paths):
+                print('[INFO] num of processed novel count: {}'.format(file_index))
+                ncode = self.ncode_from_contents_file_path(contents_file_path)
+                X_per_novel, Y_per_novel = self.create_non_seq_tensors_emb_one_of_k_per_novel(ncode=ncode)
+                per_novel_dict = {'X': X_per_novel, 'Y': Y_per_novel}
+                data_dict[ncode] = per_novel_dict
+                # 10作品ごとにdictを保存する
+                if file_index % 10 == 0:
+                    print('saving tensor...')
+                    with open(self.non_seq_data_dict_emb_one_of_k_path, 'wb') as f:
+                        joblib.dump(data_dict, f, compress=3)
+        print('saving tensor...')
+        with open(self.non_seq_data_dict_emb_one_of_k_path, 'wb') as f:
+            joblib.dump(data_dict, f, compress=3)
+        return data_dict
+
+
+    def non_seq_data_dict_emb_one_of_k(self, tensor_refresh=False):
+        """
+        文ベクトルと各文があらすじ文に対応しているかをOneHotVectorで表したNコードをキーとする辞書を返却
+        :param tensor_refresh: tensor_refresh=Bool
+        :return: dict
+        {
+        ncode:
+            {
+            X: np.array,
+            Y: np.array
+            }
+        }
+        """
+        is_tensor_data_exist = os.path.isfile(self.non_seq_data_dict_emb_one_of_k_path)
+        if is_tensor_data_exist and not tensor_refresh:
+            data_dict = self.load_non_seq_data_dict_emb_one_of_k()
+        else:
+            data_dict = self.create_non_seq_data_dict_emb_one_of_k()
+        return data_dict
+
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    訓練データの加工
+    """""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
     def dict_train_test_split(self, data_dict, splited_refresh=False, test_size=0.2):
         """
@@ -340,10 +469,6 @@ class NarouCorpus:
             Y_train = np.append(Y_train, data['Y'])
         return X_train, Y_train
 
-
-
 if __name__ == '__main__':
     corpus = NarouCorpus()
-    data_dict = corpus.non_seq_data_dict_emb_cossim()
-    train_data_dict, test_data_dict = corpus.dict_train_test_split(data_dict)
-    corpus.data_dict_to_tensor(data_dict=train_data_dict)
+    corpus.non_seq_data_dict_emb_one_of_k(tensor_refresh=True)

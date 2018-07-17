@@ -11,7 +11,6 @@ from rouge import Rouge
 from src.util import settings
 from src.narou.corpus.narou_corpus import NarouCorpus
 
-
 class SynopsisSentenceVerificator:
 
     def __init__(self):
@@ -185,7 +184,4 @@ if __name__ == '__main__':
     # verificator.create_doc_embedding_model()
     # verificator.verificate_synopsis_vector_similarity('n0002ei')
     # verificator.verificate_synopsis_BoW_simirality('n9974br')
-    verificator.verificate_similar_synopsis_rouge('n0013da', 2)
-    # syn = 'ここはとある池。池のそこではちんこと女神様が仲良く暮らしておりました。ポストの中には、ピザ屋のチラシが入っていました。'
-    # ref = 'ちんこと女神様は池のそこで仲良く暮らしています。そんなある冬の日、池のポストにピザのチラシが投函されていました'
-    # verificator.show_rouge_score(syn=syn, ref=ref)
+    verificator.verificate_similar_synopsis_rouge('n9974br', 2)

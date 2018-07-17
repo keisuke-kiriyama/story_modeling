@@ -13,11 +13,11 @@ from rouge import Rouge
 from src.util import settings
 from src.narou.corpus.narou_corpus import NarouCorpus
 
-class KerasExtractiveSummarizer:
+class KerasRegressionExtractiveSummarizer:
 
     def __init__(self):
         # PATH
-        self.trained_model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'trained_model', 'model_54_vloss0.0030.hdf5')
+        self.trained_model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'reg_trained_model', 'model_54_vloss0.0030.hdf5')
 
         # NAROU CORPUS
         self.corpus = NarouCorpus()
@@ -77,7 +77,7 @@ class KerasExtractiveSummarizer:
                                        patience=10,
                                        verbose=1)
         checkpoint = ModelCheckpoint(filepath=os.path.join(settings.NAROU_MODEL_DIR_PATH,
-                                                           'trained_model',
+                                                           'reg_trained_model',
                                                            'model_{epoch:02d}_vloss{val_loss:.4f}.hdf5'),
                                      save_best_only=True)
         hist = model.fit(self.X_train, self.Y_train, epochs=epochs,
@@ -148,7 +148,6 @@ class KerasExtractiveSummarizer:
             # lead
             lead_synopsis = ''.join([self.corpus.cleaning(line) for line in contents_lines[:len(correct_synopsis_lines)]])
             wakati_lead_synopsis = self.corpus.wakati(lead_synopsis)
-            print(wakati_lead_synopsis)
             lead.append(wakati_lead_synopsis)
 
             # proposed
@@ -172,6 +171,7 @@ class KerasExtractiveSummarizer:
         print('f-measure: {}'.format(scores['rouge-l']['f']))
         print('precision: {}'.format(scores['rouge-l']['r']))
         print('recall: {}'.format(scores['rouge-l']['p']))
+        print('\n')
 
         # LEAD EVALUATION
         scores = rouge.get_scores(lead, refs, avg=True)
@@ -188,7 +188,8 @@ class KerasExtractiveSummarizer:
         print('f-measure: {}'.format(scores['rouge-l']['f']))
         print('precision: {}'.format(scores['rouge-l']['r']))
         print('recall: {}'.format(scores['rouge-l']['p']))
-        
+        print('\n')
+
         # PROPOSED EVALUATION
         scores = rouge.get_scores(hyps, refs, avg=True)
         print('[PROPOSED METHOD EVALUATION]')
@@ -204,6 +205,7 @@ class KerasExtractiveSummarizer:
         print('f-measure: {}'.format(scores['rouge-l']['f']))
         print('precision: {}'.format(scores['rouge-l']['r']))
         print('recall: {}'.format(scores['rouge-l']['p']))
+        print('\n')
 
     def show_training_process(self):
         """
@@ -252,7 +254,7 @@ class KerasExtractiveSummarizer:
                 print('\n')
 
 if __name__ == '__main__':
-    summarizer = KerasExtractiveSummarizer()
+    summarizer = KerasRegressionExtractiveSummarizer()
     # summarizer.fit()
     summarizer.eval()
     # summarizer.show_training_process()
