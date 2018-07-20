@@ -467,9 +467,9 @@ class NarouCorpus:
         print('data dict to tensor...')
         X_values = [value['X'] for value in data_dict.values()]
         Y_values = [value['Y'] for value in data_dict.values()]
-        X_train = list(chain.from_iterable(X_values))
-        Y_train = list(chain.from_iterable(Y_values))
-        return X_train, Y_train
+        X_tensor = np.array(list(chain.from_iterable(X_values)))
+        Y_tensor = np.array(list(chain.from_iterable(Y_values)))
+        return X_tensor, Y_tensor
 
 if __name__ == '__main__':
     corpus = NarouCorpus()

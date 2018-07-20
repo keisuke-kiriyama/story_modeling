@@ -76,14 +76,14 @@ class KerasRegressionExtractiveSummarizer:
         model = self.inference()
 
         early_stopping = EarlyStopping(monitor='val_loss',
-                                       patience=10,
-                                       verbose=1)
+                                       patience=10)
         checkpoint = ModelCheckpoint(filepath=os.path.join(settings.NAROU_MODEL_DIR_PATH,
                                                            'reg_trained_model',
                                                            'model_{epoch:02d}_vloss{val_loss:.4f}.hdf5'),
                                      save_best_only=True)
         hist = model.fit(self.X_train, self.Y_train, epochs=epochs,
                          batch_size=batch_size,
+                         verbose=1,
                          validation_data=(self.X_validation, self.Y_validation),
                          callbacks=[early_stopping, checkpoint])
         self.trained_model = model
@@ -229,7 +229,7 @@ class KerasRegressionExtractiveSummarizer:
         synopsis_sentence_count = 8
         for test_ncode in test_ncodes:
             print('[INFO] test ncode: {}'.format(test_ncode))
-            contents_lines = self.corpus.get_contents_lines(ncode=test_ncode, is_test_data=False)
+            contents_lines = self.corpus.get_contents_lines(ncode=test_ncode)
             X = self.test_data_dict[test_ncode]['X']
             Y = self.test_data_dict[test_ncode]['Y']
             Y_pred = self.trained_model.predict(X)
@@ -257,8 +257,8 @@ class KerasRegressionExtractiveSummarizer:
 
 if __name__ == '__main__':
     summarizer = KerasRegressionExtractiveSummarizer()
-    # summarizer.fit()
+    summarizer.fit()
     summarizer.eval()
-    # summarizer.show_training_process()
+    summarizer.show_training_process()
     # summarizer.verificate_synopsis_generation()
     # summarizer.generate_synopsis('n0011cx', sentence_count=8, sim_threshold=0.3)
