@@ -28,6 +28,8 @@ class KerasRegressionExtractiveSummarizer:
         self.X_train, self.Y_train = self.corpus.data_dict_to_tensor(data_dict=self.training_data_dict)
         self.X_train, self.X_validation, self.Y_train, self.Y_validation = train_test_split(self.X_train, self.Y_train, test_size=0.2)
         self.X_test, self.Y_test = self.corpus.data_dict_to_tensor(data_dict=self.test_data_dict)
+        print('num of novels which is training data: {}'.format(len(self.training_data_dict.keys())))
+        print('num of novels which is test data: {}'.format(len(self.test_data_dict.keys())))
 
         # DNN MODEL PROPERTY
         self.n_in = self.corpus.sentence_vector_size

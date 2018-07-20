@@ -431,6 +431,7 @@ class NarouCorpus:
         テストデータの割合
         :return: (dict, dict)
         """
+        print('spliting data dict train test...')
         is_ncodes_file_exists = os.path.isfile(self.non_seq_data_dict_emb_cossim_train_ncode_path) \
                                 and os.path.isfile(self.non_seq_data_dict_emb_cossim_test_ncode_path)
         if is_ncodes_file_exists and not splited_refresh:
@@ -443,6 +444,7 @@ class NarouCorpus:
             test_ncodes = list(data_dict.keys())[int(len(data_dict) * (1 - test_size)):]
         train_data = {ncode: data_dict[ncode] for ncode in train_ncodes}
         test_data = {ncode: data_dict[ncode] for ncode in test_ncodes}
+        print('saving splited data ncode...')
         with open(self.non_seq_data_dict_emb_cossim_train_ncode_path, 'wb') as train_f:
             joblib.dump(train_ncodes, train_f, compress=3)
         with open(self.non_seq_data_dict_emb_cossim_test_ncode_path, 'wb') as test_f:
@@ -462,11 +464,11 @@ class NarouCorpus:
         }
         :return: (np.array, np.array)
         """
-        X_train = np.empty((0, self.sentence_vector_size), float)
-        Y_train = np.array([])
-        for data in data_dict.values():
-            X_train = np.append(X_train, data['X'], axis=0)
-            Y_train = np.append(Y_train, data['Y'])
+        print('data dict to tensor...')
+        X_values = [value['X'] for value in data_dict.values()]
+        Y_values = [value['Y'] for value in data_dict.values()]
+        X_train = list(chain.from_iterable(X_values))
+        Y_train = list(chain.from_iterable(Y_values))
         return X_train, Y_train
 
 if __name__ == '__main__':
