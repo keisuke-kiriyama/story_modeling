@@ -90,7 +90,7 @@ class KerasRegressionExtractiveSummarizer:
         self.trained_model = model
         self.training_hist = hist
 
-    def generate_synopsis(self, ncode, sentence_count):
+    def predict_synopsis(self, ncode, sentence_count):
         """
         ncodeの小説のあらすじを学習済みモデルから生成する
         :param ncode: str
@@ -111,6 +111,23 @@ class KerasRegressionExtractiveSummarizer:
         synopsis = ''.join(synopsis_lines)
         return synopsis
 
+    def predict_synopsis_with_threshold(self, ncode, threshold):
+        """
+        閾値以上の類似度が推測された分からあらすじを生成する
+        """
+        if ncode in self.training_data_dict.keys():
+            X = self.training_data_dict[ncode]['X']
+        elif ncode in self.test_data_dict.keys():
+            X = self.test_data_dict[ncode]['X']
+        else:
+            X, _ = self.corpus.create_non_seq_tensors_emb_cossim_per_novel(ncode=ncode)
+        Y_pred = self.trained_model.predict(X)
+        contents_lines = np.array(self.corpus.get_contents_lines(ncode=ncode))
+        synopsis_lines = contents_lines[np.where(Y_pred>0.2)[0]]
+        synopsis = ''.join(synopsis_lines)
+        return synopsis
+
+
     def eval(self):
         """
         学習済みモデルの評価
@@ -128,40 +145,27 @@ class KerasRegressionExtractiveSummarizer:
 
         # PROPOSED
         refs = [] # 参照要約
-        opt = [] # 類似度上位から文選択(理論上の上限値)
-        lead = [] # 文章の先頭から数文選択
-        hyps = [] # 提案手法要約
+        opts = [] # 類似度上位から文選択(理論上の上限値)
+        leads = [] # 文章の先頭から数文選択
+        pros = [] # 提案手法要約
+
         for ncode, test_data in self.test_data_dict.items():
-            # refs
-            correct_synopsis_lines = self.corpus.get_synopsis_lines(ncode=ncode)
-            correct_synopsis = ''.join(correct_synopsis_lines)
-            wakati_correct_synopsis = self.corpus.wakati(correct_synopsis)
-            refs.append(wakati_correct_synopsis)
+            # 正解と同じ文数取得
+            # ref, opt, lead, pro = self.create_synopsises_same_count_test_data(ncode=ncode, test_data=test_data)
+            # 一定数文取得
+            # ref, opt, lead, pro = self.create_synopsis_fixed_count(ncode=ncode, test_data=test_data, sentence_count=5)
+            # 閾値以上の文取得
+            ref, opt, lead, pro = self.create_synopsis_above_similarity_threshold(ncode=ncode, test_data=test_data, threshold=0.4)
 
-            # opt
-            contents_lines = self.corpus.get_contents_lines(ncode=ncode)
-            similar_sentence_indexes = np.argpartition(-test_data['Y'],
-                                                   len(correct_synopsis_lines))[:len(correct_synopsis_lines)]
-            appear_ordered = np.sort(similar_sentence_indexes)
-            opt_lines = [contents_lines[index] for index in appear_ordered]
-            opt_synopsis = ''.join(opt_lines)
-            wakati_opt_synopsis = self.corpus.wakati(opt_synopsis)
-            opt.append(wakati_opt_synopsis)
+            refs.append(ref)
+            opts.append(opt)
+            leads.append(lead)
+            pros.append(pro)
 
-            # lead
-            lead_synopsis = ''.join([self.corpus.cleaning(line) for line in contents_lines[:len(correct_synopsis_lines)]])
-            wakati_lead_synopsis = self.corpus.wakati(lead_synopsis)
-            lead.append(wakati_lead_synopsis)
-
-            # proposed
-            predict_synopsis = self.generate_synopsis(ncode=ncode, sentence_count=len(correct_synopsis_lines))
-            wakati_predict_synopsis = self.corpus.wakati(predict_synopsis)
-            hyps.append(wakati_predict_synopsis)
-
-        sys.setrecursionlimit(10000)
+        sys.setrecursionlimit(20000)
         rouge = Rouge()
         # OPTIMAL EVALUATION
-        scores = rouge.get_scores(opt, refs, avg=True)
+        scores = rouge.get_scores(opts, refs, avg=True)
         print('[OPTIMAL]')
         print('[ROUGE-1]')
         print('f-measure: {}'.format(scores['rouge-1']['f']))
@@ -178,7 +182,7 @@ class KerasRegressionExtractiveSummarizer:
         print('\n')
 
         # LEAD EVALUATION
-        scores = rouge.get_scores(lead, refs, avg=True)
+        scores = rouge.get_scores(leads, refs, avg=True)
         print('[LEAD]')
         print('[ROUGE-1]')
         print('f-measure: {}'.format(scores['rouge-1']['f']))
@@ -195,21 +199,98 @@ class KerasRegressionExtractiveSummarizer:
         print('\n')
 
         # PROPOSED EVALUATION
-        scores = rouge.get_scores(hyps, refs, avg=True)
-        print('[PROPOSED METHOD EVALUATION]')
-        print('[ROUGE-1]')
-        print('f-measure: {}'.format(scores['rouge-1']['f']))
-        print('precision: {}'.format(scores['rouge-1']['r']))
-        print('recall: {}'.format(scores['rouge-1']['p']))
-        print('[ROUGE-2]')
-        print('f-measure: {}'.format(scores['rouge-2']['f']))
-        print('precision: {}'.format(scores['rouge-2']['r']))
-        print('recall: {}'.format(scores['rouge-2']['p']))
-        print('[ROUGE-L]')
-        print('f-measure: {}'.format(scores['rouge-l']['f']))
-        print('precision: {}'.format(scores['rouge-l']['r']))
-        print('recall: {}'.format(scores['rouge-l']['p']))
-        print('\n')
+        # scores = rouge.get_scores(pros, refs, avg=True)
+        # print('[PROPOSED METHOD EVALUATION]')
+        # print('[ROUGE-1]')
+        # print('f-measure: {}'.format(scores['rouge-1']['f']))
+        # print('precision: {}'.format(scores['rouge-1']['r']))
+        # print('recall: {}'.format(scores['rouge-1']['p']))
+        # print('[ROUGE-2]')
+        # print('f-measure: {}'.format(scores['rouge-2']['f']))
+        # print('precision: {}'.format(scores['rouge-2']['r']))
+        # print('recall: {}'.format(scores['rouge-2']['p']))
+        # print('[ROUGE-L]')
+        # print('f-measure: {}'.format(scores['rouge-l']['f']))
+        # print('precision: {}'.format(scores['rouge-l']['r']))
+        # print('recall: {}'.format(scores['rouge-l']['p']))
+        # print('\n')
+
+    def create_synopsises_same_count_test_data(self, ncode, test_data):
+        """
+        正解のあらすじ文と同じ文それぞれの分かち書きされた各あらすじを返す
+        """
+        # 正解のあらすじと同じ文数
+        # refs
+        correct_synopsis_lines = self.corpus.get_synopsis_lines(ncode=ncode)
+        correct_synopsis = ''.join(correct_synopsis_lines)
+        ref = self.corpus.wakati(correct_synopsis)
+        # opt
+        contents_lines = self.corpus.get_contents_lines(ncode=ncode)
+        similar_sentence_indexes = np.argpartition(-test_data['Y'],
+                                               len(correct_synopsis_lines))[:len(correct_synopsis_lines)]
+        appear_ordered = np.sort(similar_sentence_indexes)
+        opt_lines = [contents_lines[index] for index in appear_ordered]
+        opt_synopsis = ''.join(opt_lines)
+        opt = self.corpus.wakati(opt_synopsis)
+        # lead
+        lead_synopsis = ''.join([self.corpus.cleaning(line) for line in contents_lines[:len(correct_synopsis_lines)]])
+        lead = self.corpus.wakati(lead_synopsis)
+        # proposed
+        predict_synopsis = self.predict_synopsis(ncode=ncode, sentence_count=len(correct_synopsis_lines))
+        pro = self.corpus.wakati(predict_synopsis)
+        return ref, opt, lead, pro
+
+    def create_synopsis_fixed_count(self, ncode, test_data, sentence_count):
+        """
+        一定文数によって作成された各あらすじを返す
+        """
+        # refs
+        correct_synopsis_lines = self.corpus.get_synopsis_lines(ncode=ncode)
+        correct_synopsis = ''.join(correct_synopsis_lines)
+        ref = self.corpus.wakati(correct_synopsis)
+
+        # opt
+        contents_lines = self.corpus.get_contents_lines(ncode=ncode)
+        similar_sentence_indexes = np.argpartition(-test_data['Y'],
+                                               sentence_count)[:sentence_count]
+        appear_ordered = np.sort(similar_sentence_indexes)
+        opt_lines = [contents_lines[index] for index in appear_ordered]
+        opt_synopsis = ''.join(opt_lines)
+        opt = self.corpus.wakati(opt_synopsis)
+
+        # lead
+        lead_synopsis = ''.join([self.corpus.cleaning(line) for line in contents_lines[:sentence_count]])
+        lead = self.corpus.wakati(lead_synopsis)
+
+        # proposed
+        predict_synopsis = self.predict_synopsis(ncode=ncode, sentence_count=sentence_count)
+        pro = self.corpus.wakati(predict_synopsis)
+        return ref, opt, lead, pro
+
+    def create_synopsis_above_similarity_threshold(self, ncode, test_data, threshold):
+        """
+        閾値以上の値が付与された文を選択し、各あらすじを返す
+        """
+        # refs
+        correct_synopsis_lines = self.corpus.get_synopsis_lines(ncode=ncode)
+        correct_synopsis = ''.join(correct_synopsis_lines)
+        ref = self.corpus.wakati(correct_synopsis)
+
+        # opt
+        contents_lines = np.array(self.corpus.get_contents_lines(ncode=ncode))
+        opt_lines = contents_lines[np.where(test_data['Y']>threshold)]
+        opt_synopsis = ''.join(opt_lines)
+        opt = self.corpus.wakati(opt_synopsis)
+
+        # lead
+        lead_synopsis = ''.join([self.corpus.cleaning(line) for line in contents_lines[:len(opt_lines)]])
+        lead = self.corpus.wakati(lead_synopsis)
+
+        # proposed
+        predict_synopsis = self.predict_synopsis_with_threshold(ncode=ncode, threshold=threshold)
+        pro = self.corpus.wakati(predict_synopsis)
+        return ref, opt, lead, pro
+
 
     def show_training_process(self):
         """

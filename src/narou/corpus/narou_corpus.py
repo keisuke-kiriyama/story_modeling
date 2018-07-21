@@ -428,13 +428,13 @@ class NarouCorpus:
         else:
             train_ncodes = list(data_dict.keys())[:int(len(data_dict) * (1 - test_size))]
             test_ncodes = list(data_dict.keys())[int(len(data_dict) * (1 - test_size)):]
+            print('saving splited data ncode...')
+            with open(self.non_seq_data_dict_emb_cossim_train_ncode_path, 'wb') as train_f:
+                joblib.dump(train_ncodes, train_f, compress=3)
+            with open(self.non_seq_data_dict_emb_cossim_test_ncode_path, 'wb') as test_f:
+                joblib.dump(test_ncodes, test_f, compress=3)
         train_data = {ncode: data_dict[ncode] for ncode in train_ncodes}
         test_data = {ncode: data_dict[ncode] for ncode in test_ncodes}
-        print('saving splited data ncode...')
-        with open(self.non_seq_data_dict_emb_cossim_train_ncode_path, 'wb') as train_f:
-            joblib.dump(train_ncodes, train_f, compress=3)
-        with open(self.non_seq_data_dict_emb_cossim_test_ncode_path, 'wb') as test_f:
-            joblib.dump(test_ncodes, test_f, compress=3)
         return train_data, test_data
 
     def data_dict_to_tensor(self, data_dict):
