@@ -1,4 +1,5 @@
 import os
+import sys
 import numpy as np
 from keras.models import Sequential, load_model
 from keras.layers.core import Dense, Activation, Dropout
@@ -17,7 +18,7 @@ class KerasRegressionExtractiveSummarizer:
 
     def __init__(self):
         # PATH
-        self.trained_model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'reg_trained_model', 'model_54_vloss0.0030.hdf5')
+        self.trained_model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'reg_trained_model', 'model_06_vloss0.0057.hdf5')
 
         # NAROU CORPUS
         self.corpus = NarouCorpus()
@@ -157,6 +158,7 @@ class KerasRegressionExtractiveSummarizer:
             wakati_predict_synopsis = self.corpus.wakati(predict_synopsis)
             hyps.append(wakati_predict_synopsis)
 
+        sys.setrecursionlimit(10000)
         rouge = Rouge()
         # OPTIMAL EVALUATION
         scores = rouge.get_scores(opt, refs, avg=True)
@@ -257,8 +259,8 @@ class KerasRegressionExtractiveSummarizer:
 
 if __name__ == '__main__':
     summarizer = KerasRegressionExtractiveSummarizer()
-    summarizer.fit()
+    # summarizer.fit()
     summarizer.eval()
-    summarizer.show_training_process()
+    # summarizer.show_training_process()
     # summarizer.verificate_synopsis_generation()
     # summarizer.generate_synopsis('n0011cx', sentence_count=8, sim_threshold=0.3)
