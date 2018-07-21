@@ -310,7 +310,7 @@ class NarouCorpus:
             data_dict = joblib.load(f)
         return data_dict
 
-    def create_non_seq_tensors_emb_one_of_k_per_novel(self, ncode):
+    def create_non_seq_tensors_emb_one_of_k_per_novel(self, ncode, exist_X=None):
         """
         与えられたNコードの小説の文ベクトルと本文各文があらすじ文に対応しているかを表現するOneHotVectorを返却
         :param ncode: str
@@ -322,22 +322,27 @@ class NarouCorpus:
         contents_lines = self.get_contents_lines(ncode=ncode)
         synopsis_lines = self.get_synopsis_lines(ncode=ncode)
         contents_BoW_vectors, synopsis_BoW_vectors = self.get_BoW_vectors(contents_lines=contents_lines, synopsis_lines=synopsis_lines)
-        for line_idx, contents_line in enumerate(contents_lines):
-            if line_idx % 30 == 0:
-                print('{} progress X: {:.1f}%'.format(ncode, line_idx / len(contents_lines) * 100))
+        if not exist_X is None:
+            # すでにXが作られている場合は再度計算は行なわない
+            print('[INFO] reuse X of embedding_cossim')
+            X_per_novel = exist_X
+        else:
+            for line_idx, contents_line in enumerate(contents_lines):
+                if line_idx % 30 == 0:
+                    print('{} progress X: {:.1f}%'.format(ncode, line_idx / len(contents_lines) * 100))
 
-            # 本文各文の文ベクトルをX_per_novelに追加
-            try:
-                sentence_vector = self.get_avg_word_vectors(contents_line)
-                X_per_novel = np.append(X_per_novel, [sentence_vector], axis=0)
-            except KeyError as err:
-                print(err)
-                continue
-            except:
-                print('[Error] continue to add sentence vectors')
-                continue
+                # 本文各文の文ベクトルをX_per_novelに追加
+                try:
+                    sentence_vector = self.get_avg_word_vectors(contents_line)
+                    X_per_novel = np.append(X_per_novel, [sentence_vector], axis=0)
+                except KeyError as err:
+                    print(err)
+                    continue
+                except:
+                    print('[Error] continue to add sentence vectors')
+                    continue
 
-        Y_per_novel = np.zeros(len(contents_lines))
+        Y_per_novel = np.zeros(len(X_per_novel))
         for line_idx, synopsis_BoW_vector in enumerate(synopsis_BoW_vectors):
             print('{} progress Y: {:.1f}%'.format(ncode, line_idx / len(synopsis_lines) * 100))
             similarity = [self.cos_sim(contents_BoW_vector, synopsis_BoW_vector) for contents_BoW_vector in contents_BoW_vectors]
@@ -360,17 +365,31 @@ class NarouCorpus:
         }
         """
         data_dict = dict()
-        for file_index, contents_file_path in enumerate(self.contents_file_paths):
-            print('[INFO] num of processed novel count: {}'.format(file_index))
-            ncode = self.ncode_from_contents_file_path(contents_file_path)
-            X_per_novel, Y_per_novel = self.create_non_seq_tensors_emb_one_of_k_per_novel(ncode=ncode)
-            per_novel_dict = {'X': X_per_novel, 'Y': Y_per_novel}
-            data_dict[ncode] = per_novel_dict
-            # 10作品ごとにdictを保存する
-            if file_index % 10 == 0:
-                print('saving tensor...')
-                with open(self.non_seq_data_dict_emb_one_of_k_path, 'wb') as f:
-                    joblib.dump(data_dict, f, compress=3)
+        if os.path.isfile(self.non_seq_data_dict_emb_cossim_path) and reuse_emb_cossim_X:
+            # emb_cossimデータが存在するのであれば、そのXを再利用する
+            cos_sim_data_dict = self.load_non_seq_data_dict_emb_cossim_data()
+            for file_index, (ncode, value) in enumerate(cos_sim_data_dict.items()):
+                print('[INFO] num of processed novel count: {}'.format(file_index))
+                X_per_novel, Y_per_novel = self.create_non_seq_tensors_emb_one_of_k_per_novel(ncode=ncode, exist_X=value['X'])
+                per_novel_dict = {'X': X_per_novel, 'Y': Y_per_novel}
+                data_dict[ncode] = per_novel_dict
+                # 10作品ごとにdictを保存する
+                if file_index % 10 == 0:
+                    print('saving tensor...')
+                    with open(self.non_seq_data_dict_emb_one_of_k_path, 'wb') as f:
+                        joblib.dump(data_dict, f, compress=3)
+        else:
+            for file_index, contents_file_path in enumerate(self.contents_file_paths):
+                print('[INFO] num of processed novel count: {}'.format(file_index))
+                ncode = self.ncode_from_contents_file_path(contents_file_path)
+                X_per_novel, Y_per_novel = self.create_non_seq_tensors_emb_one_of_k_per_novel(ncode=ncode)
+                per_novel_dict = {'X': X_per_novel, 'Y': Y_per_novel}
+                data_dict[ncode] = per_novel_dict
+                # 10作品ごとにdictを保存する
+                if file_index % 10 == 0:
+                    print('saving tensor...')
+                    with open(self.non_seq_data_dict_emb_one_of_k_path, 'wb') as f:
+                        joblib.dump(data_dict, f, compress=3)
         print('saving tensor...')
         with open(self.non_seq_data_dict_emb_one_of_k_path, 'wb') as f:
             joblib.dump(data_dict, f, compress=3)
