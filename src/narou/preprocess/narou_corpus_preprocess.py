@@ -74,6 +74,12 @@ def preprocess_one_episode(contents_lines):
     return sentences
 
 def preprocess_contents_data():
+    """
+    スクレイピングしたデータを正確に文分割したデータに修正する
+    スクレイピング下データをcontents_originにまとめ、この関数を回す
+    前処理されたファイルはcontentsディレクトリ下に保存される
+    :return:
+    """
     for i, contents_origin_file_path in enumerate(contents_origin_file_paths):
         ncode = corpus.ncode_from_contents_file_path(contents_origin_file_path)
         print('progress: {:.1f}%, processing: {}'.format(i / len(contents_origin_file_paths) * 100, ncode))
