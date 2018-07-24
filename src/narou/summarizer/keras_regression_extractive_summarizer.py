@@ -153,9 +153,9 @@ class KerasRegressionExtractiveSummarizer:
             # 正解と同じ文数取得
             # ref, opt, lead, pro = self.create_synopsises_same_count_test_data(ncode=ncode, test_data=test_data)
             # 一定数文取得
-            # ref, opt, lead, pro = self.create_synopsis_fixed_count(ncode=ncode, test_data=test_data, sentence_count=5)
+            ref, opt, lead, pro = self.create_synopsis_fixed_count(ncode=ncode, test_data=test_data, sentence_count=5)
             # 閾値以上の文取得
-            ref, opt, lead, pro = self.create_synopsis_above_similarity_threshold(ncode=ncode, test_data=test_data, threshold=0.4)
+            # ref, opt, lead, pro = self.create_synopsis_above_similarity_threshold(ncode=ncode, test_data=test_data, threshold=0.4)
 
             refs.append(ref)
             opts.append(opt)
@@ -199,20 +199,20 @@ class KerasRegressionExtractiveSummarizer:
         print('\n')
 
         # PROPOSED EVALUATION
-        # scores = rouge.get_scores(pros, refs, avg=True)
-        # print('[PROPOSED METHOD EVALUATION]')
-        # print('[ROUGE-1]')
-        # print('f-measure: {}'.format(scores['rouge-1']['f']))
-        # print('precision: {}'.format(scores['rouge-1']['r']))
-        # print('recall: {}'.format(scores['rouge-1']['p']))
-        # print('[ROUGE-2]')
-        # print('f-measure: {}'.format(scores['rouge-2']['f']))
-        # print('precision: {}'.format(scores['rouge-2']['r']))
-        # print('recall: {}'.format(scores['rouge-2']['p']))
-        # print('[ROUGE-L]')
-        # print('f-measure: {}'.format(scores['rouge-l']['f']))
-        # print('precision: {}'.format(scores['rouge-l']['r']))
-        # print('recall: {}'.format(scores['rouge-l']['p']))
+        scores = rouge.get_scores(pros, refs, avg=True)
+        print('[PROPOSED METHOD EVALUATION]')
+        print('[ROUGE-1]')
+        print('f-measure: {}'.format(scores['rouge-1']['f']))
+        print('precision: {}'.format(scores['rouge-1']['r']))
+        print('recall: {}'.format(scores['rouge-1']['p']))
+        print('[ROUGE-2]')
+        print('f-measure: {}'.format(scores['rouge-2']['f']))
+        print('precision: {}'.format(scores['rouge-2']['r']))
+        print('recall: {}'.format(scores['rouge-2']['p']))
+        print('[ROUGE-L]')
+        print('f-measure: {}'.format(scores['rouge-l']['f']))
+        print('precision: {}'.format(scores['rouge-l']['r']))
+        print('recall: {}'.format(scores['rouge-l']['p']))
         # print('\n')
 
     def create_synopsises_same_count_test_data(self, ncode, test_data):

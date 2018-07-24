@@ -341,7 +341,7 @@ class NarouCorpus:
 
         Y_per_novel = np.zeros(len(X_per_novel))
         # 例外が派生した文のBoWを削除する
-        for error_line_index in error_line_indexes:
+        for error_line_index in sorted(error_line_indexes, reverse=True):
             del contents_BoW_vectors[error_line_index]
         for line_idx, synopsis_BoW_vector in enumerate(synopsis_BoW_vectors):
             print('{} progress Y: {:.1f}%'.format(ncode, line_idx / len(synopsis_lines) * 100))
@@ -459,4 +459,4 @@ class NarouCorpus:
 if __name__ == '__main__':
     corpus = NarouCorpus()
     # corpus.non_seq_data_dict_emb_one_of_k(tensor_refresh=True)
-    corpus.create_non_seq_tensors_emb_one_of_k_per_novel(ncode='n0943bm')
+    corpus.create_non_seq_tensors_emb_one_of_k_per_novel(ncode='n2267be')
