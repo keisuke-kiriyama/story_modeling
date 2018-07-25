@@ -6,9 +6,7 @@ from src.narou.corpus.narou_corpus import NarouCorpus
 from src.util import settings
 
 novel_contents_origin_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'contents_origin')
-novel_meta_origin_dir_path = os.path.join(settings.NAROU_DATA_DIR_PATH, 'meta_origin')
 contents_origin_file_paths = [os.path.join(novel_contents_origin_dir_path, file_name) for file_name in os.listdir(novel_contents_origin_dir_path) if not file_name == '.DS_Store']
-meta_origin_file_paths = [os.path.join(novel_meta_origin_dir_path, file_name) for file_name in os.listdir(novel_meta_origin_dir_path) if not file_name == '.DS_Store']
 
 # メソッドを用いる
 corpus = NarouCorpus()
@@ -23,7 +21,6 @@ def convert_serif_marker(contents):
     contents = contents.replace('『', '「')
     contents = contents.replace('』', '」')
     return contents
-
 
 def preprocess_seq_serifs(seq_serif):
     """

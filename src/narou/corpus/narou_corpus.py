@@ -240,7 +240,6 @@ class NarouCorpus:
             Y_per_novel = np.append(Y_per_novel, max_sim)
         return X_per_novel, Y_per_novel
 
-
     def create_non_seq_data_dict_emb_cossim(self):
         """
         非系列情報の文ベクトルとコサイン類似度のTensorを構築
