@@ -37,6 +37,9 @@ class NarouCorpus:
     def ncode_from_contents_file_path(self, file_path):
         return file_path.split('/')[-1].split('.')[0]
 
+    def ncode_from_meta_file_path(self, file_path):
+        return file_path.split('/')[-1].split('_')[0]
+
     def load(self, file_path):
         json_file = open(file_path, 'r')
         data = json.load(json_file)

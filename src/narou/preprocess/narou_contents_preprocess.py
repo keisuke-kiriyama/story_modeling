@@ -73,7 +73,7 @@ def preprocess_one_episode(contents_lines):
 def preprocess_contents_data():
     """
     スクレイピングしたデータを正確に文分割したデータに修正する
-    スクレイピング下データをcontents_originにまとめ、この関数を回す
+    スクレイピングしたデータをcontents_originにまとめ、この関数を回す
     前処理されたファイルはcontentsディレクトリ下に保存される
     :return:
     """
