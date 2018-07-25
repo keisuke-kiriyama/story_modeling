@@ -31,7 +31,8 @@ def remove_publicity_sentences(sentences):
         '番外編',
         'フィクション',
         '携帯版',
-        '投稿予定'
+        '投稿予定',
+        'サブタイ'
     ]
     removed_sentences = []
     for sentence in sentences:

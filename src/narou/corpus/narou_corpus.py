@@ -70,14 +70,6 @@ class NarouCorpus:
             return 0
         return np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
 
-    def split_synopsis(self, synopsis):
-        """
-        あらすじを文ごとに分割する
-        :param synopsis: str
-        :return: list
-        """
-        return [line for line in re.split('[。？]', synopsis) if not line == '']
-
     def get_contents_lines(self, ncode):
         """
         本文全文のリストを返却
@@ -88,8 +80,7 @@ class NarouCorpus:
         if not contents_file_path in self.contents_file_paths:
             print('nothing ncode')
             return
-        contents_lines = [line for line in list(chain.from_iterable(self.load(contents_file_path)['contents'])) if not self.cleaning(line) == '']
-        return contents_lines
+        return list(chain.from_iterable(self.load(contents_file_path)['contents']))
 
     def get_synopsis_lines(self, ncode):
         """
@@ -101,9 +92,7 @@ class NarouCorpus:
         if not meta_file_path in self.meta_file_paths:
             print('nothing ncode')
             return
-        synopsis = self.load(meta_file_path)['story']
-        synopsis_lines = [self.cleaning(line) for line in self.split_synopsis(synopsis)]
-        return synopsis_lines
+        return self.load(meta_file_path)['story']
 
     def max_sentences_count(self):
         """
@@ -209,6 +198,7 @@ class NarouCorpus:
     def create_non_seq_tensors_emb_cossim_per_novel(self, ncode):
         """
         与えられたNコードの小説の文ベクトルとコサイン類似度のTensorを返却
+        あらすじ文がない場合には空の(None, None)が返却される
         :param ncode: str
         :param is_test_data: bool
         :return: (np.array, np.array)
@@ -218,6 +208,8 @@ class NarouCorpus:
         Y_per_novel = np.array([])
         contents_lines = self.get_contents_lines(ncode=ncode)
         synopsis_lines = self.get_synopsis_lines(ncode=ncode)
+        if not synopsis_lines:
+            return None, None
         contents_BoW_vectors, synopsis_BoW_vectors = self.get_BoW_vectors(contents_lines=contents_lines, synopsis_lines=synopsis_lines)
         for line_idx, (contents_line, contents_BoW_vector) in enumerate(zip(contents_lines, contents_BoW_vectors)):
             if line_idx % 30 == 0:
@@ -261,6 +253,8 @@ class NarouCorpus:
             print('[INFO] num of processed novel count: {}'.format(file_index))
             ncode = self.ncode_from_contents_file_path(contents_file_path)
             X_per_novel, Y_per_novel = self.create_non_seq_tensors_emb_cossim_per_novel(ncode=ncode)
+            if Y_per_novel is None:
+                continue
             per_novel_dict = {'X': X_per_novel, 'Y': Y_per_novel}
             data_dict[ncode] = per_novel_dict
 
@@ -315,6 +309,7 @@ class NarouCorpus:
     def create_non_seq_tensors_emb_one_of_k_per_novel(self, ncode):
         """
         与えられたNコードの小説の文ベクトルと本文各文があらすじ文に対応しているかを表現するOneHotVectorを返却
+        あらすじが空の場合は(None, None)が返される
         :param ncode: str
         :param exist_X: np.array
         :return: (np.array, np.array)
@@ -323,6 +318,8 @@ class NarouCorpus:
         X_per_novel = np.empty((0, self.sentence_vector_size), float)
         contents_lines = self.get_contents_lines(ncode=ncode)
         synopsis_lines = self.get_synopsis_lines(ncode=ncode)
+        if not synopsis_lines:
+            return None, None
         contents_BoW_vectors, synopsis_BoW_vectors = self.get_BoW_vectors(contents_lines=contents_lines, synopsis_lines=synopsis_lines)
         error_line_indexes = []
         for line_idx, contents_line in enumerate(contents_lines):
@@ -371,6 +368,8 @@ class NarouCorpus:
             print('[INFO] num of processed novel count: {}'.format(file_index))
             ncode = self.ncode_from_contents_file_path(contents_file_path)
             X_per_novel, Y_per_novel = self.create_non_seq_tensors_emb_one_of_k_per_novel(ncode=ncode)
+            if Y_per_novel is None:
+                continue
             per_novel_dict = {'X': X_per_novel, 'Y': Y_per_novel}
             data_dict[ncode] = per_novel_dict
             # 10作品ごとにdictを保存する
@@ -460,5 +459,5 @@ class NarouCorpus:
 
 if __name__ == '__main__':
     corpus = NarouCorpus()
-    # corpus.non_seq_data_dict_emb_one_of_k(tensor_refresh=True)
-    corpus.create_non_seq_tensors_emb_one_of_k_per_novel(ncode='n2267be')
+    # corpus.non_seq_data_dict_emb_cossim(tensor_refresh=True)
+    # corpus.create_non_seq_tensors_emb_cossim_per_novel(ncode='n8681cd')
