@@ -459,5 +459,5 @@ class NarouCorpus:
 
 if __name__ == '__main__':
     corpus = NarouCorpus()
-    # corpus.non_seq_data_dict_emb_cossim(tensor_refresh=True)
+    corpus.non_seq_data_dict_emb_cossim(tensor_refresh=True)
     # corpus.create_non_seq_tensors_emb_cossim_per_novel(ncode='n8681cd')

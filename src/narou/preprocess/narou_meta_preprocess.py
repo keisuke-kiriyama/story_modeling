@@ -22,7 +22,10 @@ def remove_publicity_sentences(sentences):
         '月間',
         '累計',
         'アルファポリス',
+        '完結',
         '完結済',
+        '連載'
+        '連載中',
         'ハイファンタジー',
         'PV',
         '休載',
@@ -32,13 +35,76 @@ def remove_publicity_sentences(sentences):
         'フィクション',
         '携帯版',
         '投稿予定',
-        'サブタイ'
+        'サブタイ',
+        '改稿',
+        '改稿済',
+        '感想',
+        'シリーズ',
+        '更新',
+        '掲載'
+        '不定期'
+        '改編',
+        '短編',
+        '短篇',
+        '中編',
+        '長編',
+        '欠番編',
+        'オーディオブック',
+        '作者',
+        'コメディー',
+        'お楽しみください',
+        '前半',
+        '後半',
+        '読めます',
+        '公開',
+        'FA',
+        '挿絵',
+        '設定',
+        'あらすじ',
+        '書きなおす',
+        '発売',
+        '転載',
+        '[PG12]',
+        'モーニングスター大賞',
+        '応援よろしくお願いいたします',
+        'タグ',
+        '書籍化',
+        'スピンオフ',
+        '重複展開',
+        'ご了承',
+        '読んでくださる',
+        'タイトルを変更',
+        '途中で放棄',
+        '掲載中',
+        '本文の書き換え',
+        'ブログ',
+        '他サイト',
+        'ありがとうございました',
+        '話予定',
+        'そちらを読んでから',
+        '前作',
+        'オススメ',
+        '残酷描写',
+        '差別表現',
+        'ご愛読',
+        'R15',
+        'Ｒ１５',
+        '実在のものとは関係ありません',
+        'ネタバレ',
+        'カクヨム',
+        '処女作',
+        '執筆中',
+        'pixiv',
+        '２ｃｈ',
+        '2ch'
     ]
     removed_sentences = []
     for sentence in sentences:
         is_publicity_sentence = True in [pablicity_word in sentence for pablicity_word in pablicity_words]
         if not is_publicity_sentence and len(sentence) > 1:
             removed_sentences.append(sentence)
+        else:
+            print(sentence)
     return removed_sentences
 
 def preprocess_synopsis(synopsis):
