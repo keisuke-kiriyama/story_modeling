@@ -18,14 +18,14 @@ class KerasRegressionExtractiveSummarizer:
 
     def __init__(self):
         # PATH
-        self.trained_model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'reg_trained_model', 'model_06_vloss0.0057.hdf5')
+        self.trained_model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'reg_trained_model', '180727','model_04_vloss0.0060.hdf5')
 
         # NAROU CORPUS
         self.corpus = NarouCorpus()
 
         # TRAINING DATA
         self.data_dict = self.corpus.non_seq_data_dict_emb_cossim(tensor_refresh=False)
-        self.training_data_dict, self.test_data_dict = self.corpus.dict_train_test_split(self.data_dict, test_size=0.2)
+        self.training_data_dict, self.test_data_dict = self.corpus.dict_train_test_split(self.data_dict, splited_refresh=False, test_size=0.2)
         self.X_train, self.Y_train = self.corpus.data_dict_to_tensor(data_dict=self.training_data_dict)
         self.X_train, self.X_validation, self.Y_train, self.Y_validation = train_test_split(self.X_train, self.Y_train, test_size=0.2)
         self.X_test, self.Y_test = self.corpus.data_dict_to_tensor(data_dict=self.test_data_dict)
@@ -41,6 +41,7 @@ class KerasRegressionExtractiveSummarizer:
 
         # TRAINED
         if os.path.isfile(self.trained_model_path):
+            print('loading trained model: {}'.format(self.trained_model_path))
             self.trained_model = load_model(self.trained_model_path)
         else:
             self.trained_model = None
@@ -80,6 +81,7 @@ class KerasRegressionExtractiveSummarizer:
                                        patience=10)
         checkpoint = ModelCheckpoint(filepath=os.path.join(settings.NAROU_MODEL_DIR_PATH,
                                                            'reg_trained_model',
+                                                           '180727',
                                                            'model_{epoch:02d}_vloss{val_loss:.4f}.hdf5'),
                                      save_best_only=True)
         hist = model.fit(self.X_train, self.Y_train, epochs=epochs,
@@ -151,9 +153,9 @@ class KerasRegressionExtractiveSummarizer:
 
         for ncode, test_data in self.test_data_dict.items():
             # 正解と同じ文数取得
-            # ref, opt, lead, pro = self.create_synopsises_same_count_test_data(ncode=ncode, test_data=test_data)
+            ref, opt, lead, pro = self.create_synopsises_same_count_test_data(ncode=ncode, test_data=test_data)
             # 一定数文取得
-            ref, opt, lead, pro = self.create_synopsis_fixed_count(ncode=ncode, test_data=test_data, sentence_count=5)
+            # ref, opt, lead, pro = self.create_synopsis_fixed_count(ncode=ncode, test_data=test_data, sentence_count=5)
             # 閾値以上の文取得
             # ref, opt, lead, pro = self.create_synopsis_above_similarity_threshold(ncode=ncode, test_data=test_data, threshold=0.4)
 
@@ -278,7 +280,7 @@ class KerasRegressionExtractiveSummarizer:
 
         # opt
         contents_lines = np.array(self.corpus.get_contents_lines(ncode=ncode))
-        opt_lines = contents_lines[np.where(test_data['Y']>threshold)]
+        opt_lines = contents_lines[np.where(test_data['Y'] > threshold)]
         opt_synopsis = ''.join(opt_lines)
         opt = self.corpus.wakati(opt_synopsis)
 

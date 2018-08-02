@@ -25,7 +25,7 @@ class KerasBinaryExtractiveSummarizer:
         self.corpus = NarouCorpus()
 
         # TRAINING DATA
-        self.data_dict = self.corpus.non_seq_data_dict_emb_one_of_k(tensor_refresh=True)
+        self.data_dict = self.corpus.non_seq_data_dict_emb_one_of_k(tensor_refresh=False)
         self.training_data_dict, self.test_data_dict = self.corpus.dict_train_test_split(self.data_dict, test_size=0.2)
         self.X_train, self.Y_train = self.corpus.data_dict_to_tensor(data_dict=self.training_data_dict)
         self.X_train, self.X_validation, self.Y_train, self.Y_validation = train_test_split(self.X_train, self.Y_train, test_size=0.2)

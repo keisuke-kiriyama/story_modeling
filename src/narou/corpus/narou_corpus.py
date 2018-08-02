@@ -204,6 +204,7 @@ class NarouCorpus:
         :return: (np.array, np.array)
         """
         print('[PROCESS NCODE]: {}'.format(ncode))
+        lines_per_novel = np.array([])
         X_per_novel = np.empty((0, self.sentence_vector_size), float)
         Y_per_novel = np.array([])
         contents_lines = self.get_contents_lines(ncode=ncode)
@@ -233,7 +234,11 @@ class NarouCorpus:
                 if sim > max_sim:
                     max_sim = sim
             Y_per_novel = np.append(Y_per_novel, max_sim)
-        return X_per_novel, Y_per_novel
+
+            # 処理済みの文を保持
+            lines_per_novel = np.append(lines_per_novel, contents_lines[line_idx])
+
+        return lines_per_novel, X_per_novel, Y_per_novel
 
     def create_non_seq_data_dict_emb_cossim(self):
         """
@@ -243,6 +248,7 @@ class NarouCorpus:
         {
         ncode:
             {
+            lines: np.array,
             X: np.array,
             Y: np.array
             }
@@ -252,10 +258,10 @@ class NarouCorpus:
         for file_index, contents_file_path in enumerate(self.contents_file_paths):
             print('[INFO] num of processed novel count: {}'.format(file_index))
             ncode = self.ncode_from_contents_file_path(contents_file_path)
-            X_per_novel, Y_per_novel = self.create_non_seq_tensors_emb_cossim_per_novel(ncode=ncode)
+            lines, X_per_novel, Y_per_novel = self.create_non_seq_tensors_emb_cossim_per_novel(ncode=ncode)
             if Y_per_novel is None:
                 continue
-            per_novel_dict = {'X': X_per_novel, 'Y': Y_per_novel}
+            per_novel_dict = {'lines': lines, 'X': X_per_novel, 'Y': Y_per_novel}
             data_dict[ncode] = per_novel_dict
 
             # 100作品ごとにdictを保存する
@@ -280,6 +286,7 @@ class NarouCorpus:
         {
         ncode:
             {
+            lines: np.array,
             X: np.array,
             Y: np.array
             }
@@ -318,7 +325,7 @@ class NarouCorpus:
         X_per_novel = np.empty((0, self.sentence_vector_size), float)
         contents_lines = self.get_contents_lines(ncode=ncode)
         synopsis_lines = self.get_synopsis_lines(ncode=ncode)
-        if not synopsis_lines:
+        if not synopsis_lines or not contents_lines:
             return None, None
         contents_BoW_vectors, synopsis_BoW_vectors = self.get_BoW_vectors(contents_lines=contents_lines, synopsis_lines=synopsis_lines)
         error_line_indexes = []
@@ -337,7 +344,6 @@ class NarouCorpus:
                 print('[Error] continue to add sentence vectors')
                 error_line_indexes.append(line_idx)
                 continue
-
         Y_per_novel = np.zeros(len(X_per_novel))
         # 例外が派生した文のBoWを削除する
         for error_line_index in sorted(error_line_indexes, reverse=True):
@@ -460,4 +466,5 @@ class NarouCorpus:
 if __name__ == '__main__':
     corpus = NarouCorpus()
     corpus.non_seq_data_dict_emb_cossim(tensor_refresh=True)
-    # corpus.create_non_seq_tensors_emb_cossim_per_novel(ncode='n8681cd')
+    # corpus.non_seq_data_dict_emb_one_of_k(tensor_refresh=True)
+    # corpus.create_non_seq_tensors_emb_one_of_k_per_novel(ncode='n6921cw')
