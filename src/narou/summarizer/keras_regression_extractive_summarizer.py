@@ -101,15 +101,20 @@ class KerasRegressionExtractiveSummarizer:
         """
         if ncode in self.training_data_dict.keys():
             X = self.training_data_dict[ncode]['X']
+            error_line_indexes = self.training_data_dict[ncode]['error_line_indexes']
         elif ncode in self.test_data_dict.keys():
             X = self.test_data_dict[ncode]['X']
+            error_line_indexes = self.training_data_dict[ncode]['error_line_indexes']
         else:
-            X, _ = self.corpus.create_non_seq_tensors_emb_cossim_per_novel(ncode=ncode)
+            print('nothing ncode in data_dict')
+            return
         Y_pred = self.trained_model.predict(X)
         similar_sentence_indexes = np.argpartition(-Y_pred.T,
                                                    sentence_count)[0][:sentence_count]
         contents_lines = self.corpus.get_contents_lines(ncode=ncode)
-        synopsis_lines = [self.corpus.cleaning(contents_lines[line_index]) for line_index in similar_sentence_indexes]
+        removed_contents_lines = self.corpus.remove_error_line_indexes_from_contents_lines(contents_lines=contents_lines,
+                                                                                           error_line_indexes=error_line_indexes)
+        synopsis_lines = [self.corpus.cleaning(removed_contents_lines[line_index]) for line_index in similar_sentence_indexes]
         synopsis = ''.join(synopsis_lines)
         return synopsis
 
@@ -119,16 +124,20 @@ class KerasRegressionExtractiveSummarizer:
         """
         if ncode in self.training_data_dict.keys():
             X = self.training_data_dict[ncode]['X']
+            error_line_indexes = self.training_data_dict[ncode]['error_line_indexes']
         elif ncode in self.test_data_dict.keys():
             X = self.test_data_dict[ncode]['X']
+            error_line_indexes = self.training_data_dict[ncode]['error_line_indexes']
         else:
-            X, _ = self.corpus.create_non_seq_tensors_emb_cossim_per_novel(ncode=ncode)
+            print('nothing ncode in data_dict')
+            return
         Y_pred = self.trained_model.predict(X)
         contents_lines = np.array(self.corpus.get_contents_lines(ncode=ncode))
-        synopsis_lines = contents_lines[np.where(Y_pred>0.2)[0]]
+        removed_contents_lines = self.corpus.remove_error_line_indexes_from_contents_lines(contents_lines=contents_lines,
+                                                                                           error_line_indexes=error_line_indexes)
+        synopsis_lines = removed_contents_lines[np.where(Y_pred>0.2)[0]]
         synopsis = ''.join(synopsis_lines)
         return synopsis
-
 
     def eval(self):
         """
@@ -228,18 +237,22 @@ class KerasRegressionExtractiveSummarizer:
         ref = self.corpus.wakati(correct_synopsis)
         # opt
         contents_lines = self.corpus.get_contents_lines(ncode=ncode)
+        removed_contents_lines = self.corpus.remove_error_line_indexes_from_contents_lines(contents_lines,
+                                                                                           test_data['error_line_indexes'])
         similar_sentence_indexes = np.argpartition(-test_data['Y'],
                                                len(correct_synopsis_lines))[:len(correct_synopsis_lines)]
         appear_ordered = np.sort(similar_sentence_indexes)
-        opt_lines = [contents_lines[index] for index in appear_ordered]
+        opt_lines = [removed_contents_lines[index] for index in appear_ordered]
         opt_synopsis = ''.join(opt_lines)
         opt = self.corpus.wakati(opt_synopsis)
         # lead
-        lead_synopsis = ''.join([self.corpus.cleaning(line) for line in contents_lines[:len(correct_synopsis_lines)]])
-        lead = self.corpus.wakati(lead_synopsis)
+        # lead_synopsis = ''.join([self.corpus.cleaning(line) for line in contents_lines[:len(correct_synopsis_lines)]])
+        # lead = self.corpus.wakati(lead_synopsis)
         # proposed
-        predict_synopsis = self.predict_synopsis(ncode=ncode, sentence_count=len(correct_synopsis_lines))
-        pro = self.corpus.wakati(predict_synopsis)
+        # predict_synopsis = self.predict_synopsis(ncode=ncode, sentence_count=len(correct_synopsis_lines))
+        # pro = self.corpus.wakati(predict_synopsis)
+        lead = 'test'
+        pro = 'test'
         return ref, opt, lead, pro
 
     def create_synopsis_fixed_count(self, ncode, test_data, sentence_count):

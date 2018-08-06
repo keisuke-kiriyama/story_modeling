@@ -151,6 +151,19 @@ class NarouCorpus:
                 removed.append(splited[0])
         return removed
 
+    def remove_error_line_indexes_from_contents_lines(self, contents_lines, error_line_indexes):
+        """
+        本文からエラーがでた行を削除する
+        :param contents_lines: list
+        :param error_line_indexes: list
+        :return: list
+        """
+        if error_line_indexes.size == 0:
+            return contents_lines
+        for error_line_index in sorted(error_line_indexes, reverse=True):
+            del contents_lines[int(error_line_index)]
+        return contents_lines
+
     def get_BoW_vectors(self, contents_lines, synopsis_lines):
         """
         文のリストから各文のBoWベクトルのリストを返す
@@ -204,13 +217,13 @@ class NarouCorpus:
         :return: (np.array, np.array)
         """
         print('[PROCESS NCODE]: {}'.format(ncode))
-        lines_per_novel = np.array([])
+        error_line_indexes = np.array([])
         X_per_novel = np.empty((0, self.sentence_vector_size), float)
         Y_per_novel = np.array([])
         contents_lines = self.get_contents_lines(ncode=ncode)
         synopsis_lines = self.get_synopsis_lines(ncode=ncode)
         if not synopsis_lines:
-            return None, None
+            return None, None, None
         contents_BoW_vectors, synopsis_BoW_vectors = self.get_BoW_vectors(contents_lines=contents_lines, synopsis_lines=synopsis_lines)
         for line_idx, (contents_line, contents_BoW_vector) in enumerate(zip(contents_lines, contents_BoW_vectors)):
             if line_idx % 30 == 0:
@@ -222,9 +235,11 @@ class NarouCorpus:
                 X_per_novel = np.append(X_per_novel, [sentence_vector], axis=0)
             except KeyError as err:
                 print(err)
+                error_line_indexes = np.append(error_line_indexes, line_idx)
                 continue
             except:
                 print('[Error] continue to add sentence vectors')
+                error_line_indexes = np.append(error_line_indexes, line_idx)
                 continue
 
             # 各文のあらすじ文との最大cos類似度をY_per_novelに追加
@@ -235,10 +250,7 @@ class NarouCorpus:
                     max_sim = sim
             Y_per_novel = np.append(Y_per_novel, max_sim)
 
-            # 処理済みの文を保持
-            lines_per_novel = np.append(lines_per_novel, contents_lines[line_idx])
-
-        return lines_per_novel, X_per_novel, Y_per_novel
+        return error_line_indexes, X_per_novel, Y_per_novel
 
     def create_non_seq_data_dict_emb_cossim(self):
         """
@@ -248,7 +260,7 @@ class NarouCorpus:
         {
         ncode:
             {
-            lines: np.array,
+            error_line_indexes: np.array,
             X: np.array,
             Y: np.array
             }
@@ -258,14 +270,14 @@ class NarouCorpus:
         for file_index, contents_file_path in enumerate(self.contents_file_paths):
             print('[INFO] num of processed novel count: {}'.format(file_index))
             ncode = self.ncode_from_contents_file_path(contents_file_path)
-            lines, X_per_novel, Y_per_novel = self.create_non_seq_tensors_emb_cossim_per_novel(ncode=ncode)
+            error_line_indexes, X_per_novel, Y_per_novel = self.create_non_seq_tensors_emb_cossim_per_novel(ncode=ncode)
             if Y_per_novel is None:
                 continue
-            per_novel_dict = {'lines': lines, 'X': X_per_novel, 'Y': Y_per_novel}
+            per_novel_dict = {'error_line_indexes': error_line_indexes, 'X': X_per_novel, 'Y': Y_per_novel}
             data_dict[ncode] = per_novel_dict
 
             # 100作品ごとにdictを保存する
-            if file_index % 10 == 0:
+            if file_index % 100 == 0:
                 print('saving tensor...')
                 with open(self.non_seq_data_dict_emb_cossim_path, 'wb') as f:
                     joblib.dump(data_dict, f, compress=3)
@@ -465,6 +477,6 @@ class NarouCorpus:
 
 if __name__ == '__main__':
     corpus = NarouCorpus()
-    corpus.non_seq_data_dict_emb_cossim(tensor_refresh=True)
+    # corpus.non_seq_data_dict_emb_cossim(tensor_refresh=True)
     # corpus.non_seq_data_dict_emb_one_of_k(tensor_refresh=True)
     # corpus.create_non_seq_tensors_emb_one_of_k_per_novel(ncode='n6921cw')
