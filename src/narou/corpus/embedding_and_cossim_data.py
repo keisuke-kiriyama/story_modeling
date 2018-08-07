@@ -8,6 +8,7 @@ from src.util import settings
 class EmbeddingAndCosSimData:
 
     """
+    error_line_indexes: データ作成時にエラーがでた文のインデックス
     X: 文中の単語ベクトルの平均ベクトル
     Y: 本文全文と最も類似度が高いあらすじ文との類似度
     {
