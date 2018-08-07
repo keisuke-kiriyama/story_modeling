@@ -1,5 +1,3 @@
-# 小説本文とあらすじが両方存在していないファイルを削除する
-
 from src.util import settings
 from src.narou.downloader.narou_meta_downloader import fetch_novel_meta_info
 import os

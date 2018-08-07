@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from rouge import Rouge
 
 from src.util import settings
-from src.narou.corpus.narou_corpus import NarouCorpus
+from src.narou.corpus.embedding_and_cossim_data import EmbeddingAndCosSimData
 
 class KerasRegressionExtractiveSummarizer:
 
@@ -20,20 +20,20 @@ class KerasRegressionExtractiveSummarizer:
         # PATH
         self.trained_model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'reg_trained_model', '180727','model_04_vloss0.0060.hdf5')
 
-        # NAROU CORPUS
-        self.corpus = NarouCorpus()
+        # DATA SUPPLIER
+        self.data_supplier = EmbeddingAndCosSimData()
 
         # TRAINING DATA
-        self.data_dict = self.corpus.non_seq_data_dict_emb_cossim(tensor_refresh=False)
-        self.training_data_dict, self.test_data_dict = self.corpus.dict_train_test_split(self.data_dict, splited_refresh=False, test_size=0.2)
-        self.X_train, self.Y_train = self.corpus.data_dict_to_tensor(data_dict=self.training_data_dict)
+        self.data_dict = self.data_supplier.non_seq_data_dict_emb_cossim(tensor_refresh=False)
+        self.training_data_dict, self.test_data_dict = self.data_supplier.corpus.dict_train_test_split(self.data_dict, splited_refresh=False, test_size=0.2)
+        self.X_train, self.Y_train = self.data_supplier.corpus.data_dict_to_tensor(data_dict=self.training_data_dict)
         self.X_train, self.X_validation, self.Y_train, self.Y_validation = train_test_split(self.X_train, self.Y_train, test_size=0.2)
-        self.X_test, self.Y_test = self.corpus.data_dict_to_tensor(data_dict=self.test_data_dict)
+        self.X_test, self.Y_test = self.data_supplier.corpus.data_dict_to_tensor(data_dict=self.test_data_dict)
         print('num of novels which is training data: {}'.format(len(self.training_data_dict.keys())))
         print('num of novels which is test data: {}'.format(len(self.test_data_dict.keys())))
 
         # DNN MODEL PROPERTY
-        self.n_in = self.corpus.sentence_vector_size
+        self.n_in = self.data_supplier.sentence_vector_size
         self.n_hiddens = [800, 800]
         self.n_out = 1
         self.activation = 'relu'
@@ -111,10 +111,10 @@ class KerasRegressionExtractiveSummarizer:
         Y_pred = self.trained_model.predict(X)
         similar_sentence_indexes = np.argpartition(-Y_pred.T,
                                                    sentence_count)[0][:sentence_count]
-        contents_lines = self.corpus.get_contents_lines(ncode=ncode)
-        removed_contents_lines = self.corpus.remove_error_line_indexes_from_contents_lines(contents_lines=contents_lines,
+        contents_lines = self.data_supplier.corpus.get_contents_lines(ncode=ncode)
+        removed_contents_lines = self.data_supplier.corpus.remove_error_line_indexes_from_contents_lines(contents_lines=contents_lines,
                                                                                            error_line_indexes=error_line_indexes)
-        synopsis_lines = [self.corpus.cleaning(removed_contents_lines[line_index]) for line_index in similar_sentence_indexes]
+        synopsis_lines = [self.data_supplier.corpus.cleaning(removed_contents_lines[line_index]) for line_index in similar_sentence_indexes]
         synopsis = ''.join(synopsis_lines)
         return synopsis
 
@@ -132,8 +132,8 @@ class KerasRegressionExtractiveSummarizer:
             print('nothing ncode in data_dict')
             return
         Y_pred = self.trained_model.predict(X)
-        contents_lines = np.array(self.corpus.get_contents_lines(ncode=ncode))
-        removed_contents_lines = self.corpus.remove_error_line_indexes_from_contents_lines(contents_lines=contents_lines,
+        contents_lines = np.array(self.data_supplier.corpus.get_contents_lines(ncode=ncode))
+        removed_contents_lines = self.data_supplier.corpus.remove_error_line_indexes_from_contents_lines(contents_lines=contents_lines,
                                                                                            error_line_indexes=error_line_indexes)
         synopsis_lines = removed_contents_lines[np.where(Y_pred>0.2)[0]]
         synopsis = ''.join(synopsis_lines)
@@ -232,19 +232,19 @@ class KerasRegressionExtractiveSummarizer:
         """
         # 正解のあらすじと同じ文数
         # refs
-        correct_synopsis_lines = self.corpus.get_synopsis_lines(ncode=ncode)
+        correct_synopsis_lines = self.data_supplier.corpus.get_synopsis_lines(ncode=ncode)
         correct_synopsis = ''.join(correct_synopsis_lines)
-        ref = self.corpus.wakati(correct_synopsis)
+        ref = self.data_supplier.corpus.wakati(correct_synopsis)
         # opt
-        contents_lines = self.corpus.get_contents_lines(ncode=ncode)
-        removed_contents_lines = self.corpus.remove_error_line_indexes_from_contents_lines(contents_lines,
+        contents_lines = self.data_supplier.corpus.get_contents_lines(ncode=ncode)
+        removed_contents_lines = self.data_supplier.corpus.remove_error_line_indexes_from_contents_lines(contents_lines,
                                                                                            test_data['error_line_indexes'])
         similar_sentence_indexes = np.argpartition(-test_data['Y'],
                                                len(correct_synopsis_lines))[:len(correct_synopsis_lines)]
         appear_ordered = np.sort(similar_sentence_indexes)
         opt_lines = [removed_contents_lines[index] for index in appear_ordered]
         opt_synopsis = ''.join(opt_lines)
-        opt = self.corpus.wakati(opt_synopsis)
+        opt = self.data_supplier.corpus.wakati(opt_synopsis)
         # lead
         # lead_synopsis = ''.join([self.corpus.cleaning(line) for line in contents_lines[:len(correct_synopsis_lines)]])
         # lead = self.corpus.wakati(lead_synopsis)
@@ -260,26 +260,26 @@ class KerasRegressionExtractiveSummarizer:
         一定文数によって作成された各あらすじを返す
         """
         # refs
-        correct_synopsis_lines = self.corpus.get_synopsis_lines(ncode=ncode)
+        correct_synopsis_lines = self.data_supplier.corpus.get_synopsis_lines(ncode=ncode)
         correct_synopsis = ''.join(correct_synopsis_lines)
-        ref = self.corpus.wakati(correct_synopsis)
+        ref = self.data_supplier.corpus.wakati(correct_synopsis)
 
         # opt
-        contents_lines = self.corpus.get_contents_lines(ncode=ncode)
+        contents_lines = self.data_supplier.corpus.get_contents_lines(ncode=ncode)
         similar_sentence_indexes = np.argpartition(-test_data['Y'],
                                                sentence_count)[:sentence_count]
         appear_ordered = np.sort(similar_sentence_indexes)
         opt_lines = [contents_lines[index] for index in appear_ordered]
         opt_synopsis = ''.join(opt_lines)
-        opt = self.corpus.wakati(opt_synopsis)
+        opt = self.data_supplier.corpus.wakati(opt_synopsis)
 
         # lead
-        lead_synopsis = ''.join([self.corpus.cleaning(line) for line in contents_lines[:sentence_count]])
-        lead = self.corpus.wakati(lead_synopsis)
+        lead_synopsis = ''.join([self.data_supplier.corpus.cleaning(line) for line in contents_lines[:sentence_count]])
+        lead = self.data_supplier.corpus.wakati(lead_synopsis)
 
         # proposed
         predict_synopsis = self.predict_synopsis(ncode=ncode, sentence_count=sentence_count)
-        pro = self.corpus.wakati(predict_synopsis)
+        pro = self.data_supplier.corpus.wakati(predict_synopsis)
         return ref, opt, lead, pro
 
     def create_synopsis_above_similarity_threshold(self, ncode, test_data, threshold):
@@ -287,23 +287,23 @@ class KerasRegressionExtractiveSummarizer:
         閾値以上の値が付与された文を選択し、各あらすじを返す
         """
         # refs
-        correct_synopsis_lines = self.corpus.get_synopsis_lines(ncode=ncode)
+        correct_synopsis_lines = self.data_supplier.corpus.get_synopsis_lines(ncode=ncode)
         correct_synopsis = ''.join(correct_synopsis_lines)
-        ref = self.corpus.wakati(correct_synopsis)
+        ref = self.data_supplier.corpus.wakati(correct_synopsis)
 
         # opt
-        contents_lines = np.array(self.corpus.get_contents_lines(ncode=ncode))
+        contents_lines = np.array(self.data_supplier.corpus.get_contents_lines(ncode=ncode))
         opt_lines = contents_lines[np.where(test_data['Y'] > threshold)]
         opt_synopsis = ''.join(opt_lines)
-        opt = self.corpus.wakati(opt_synopsis)
+        opt = self.data_supplier.corpus.wakati(opt_synopsis)
 
         # lead
-        lead_synopsis = ''.join([self.corpus.cleaning(line) for line in contents_lines[:len(opt_lines)]])
-        lead = self.corpus.wakati(lead_synopsis)
+        lead_synopsis = ''.join([self.data_supplier.corpus.cleaning(line) for line in contents_lines[:len(opt_lines)]])
+        lead = self.data_supplier.corpus.wakati(lead_synopsis)
 
         # proposed
         predict_synopsis = self.predict_synopsis_with_threshold(ncode=ncode, threshold=threshold)
-        pro = self.corpus.wakati(predict_synopsis)
+        pro = self.data_supplier.corpus.wakati(predict_synopsis)
         return ref, opt, lead, pro
 
 
@@ -327,7 +327,7 @@ class KerasRegressionExtractiveSummarizer:
         synopsis_sentence_count = 8
         for test_ncode in test_ncodes:
             print('[INFO] test ncode: {}'.format(test_ncode))
-            contents_lines = self.corpus.get_contents_lines(ncode=test_ncode)
+            contents_lines = self.data_supplier.corpus.get_contents_lines(ncode=test_ncode)
             X = self.test_data_dict[test_ncode]['X']
             Y = self.test_data_dict[test_ncode]['Y']
             Y_pred = self.trained_model.predict(X)
