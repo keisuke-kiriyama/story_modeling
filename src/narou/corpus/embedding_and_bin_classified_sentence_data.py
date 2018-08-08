@@ -1,4 +1,5 @@
 import os
+import sys
 import joblib
 import numpy as np
 from rouge import Rouge
@@ -67,12 +68,12 @@ class EmbeddingAndBinClassifiedSentenceData:
          rouge:
             {
             f: float,
-            recall: float,
-            precision: float
+            r: float,
+            p: float
             }
         }
         """
-        per_novel_data_dict = dict()
+        print('processing Ncode: {}'.format(ncode))
         rouge = Rouge()
 
         contents_lines = self.corpus.get_contents_lines(ncode)
@@ -80,23 +81,50 @@ class EmbeddingAndBinClassifiedSentenceData:
                                                                                            emb_cossim_data['error_line_indexes']))
 
         ref = self.corpus.wakati(''.join(self.corpus.get_synopsis_lines(ncode)))
-        max_sentence_count = self.max_sentence_count if len(emb_cossim_data['X']) > self.max_sentence_count else len(emb_cossim_data['X'])
+        if removed_contents_lines.size == 0 or not ref:
+            print('contents or synopsis is empty')
+            return None
+        max_sentence_count = min(self.max_sentence_count, len(emb_cossim_data['X']))
         high_score_line_indexes = np.argsort(-emb_cossim_data['Y'])[:max_sentence_count]
         high_score_slices = [high_score_line_indexes[:i + 1] for i in range(max_sentence_count)]
         synopsises = [self.corpus.wakati(''.join(removed_contents_lines[indices])) for indices in high_score_slices]
-        scores = [rouge.get_scores(hyps=hyp, refs=ref, avg=False) for hyp in synopsises]
-        print(scores)
-        return dict()
+        try:
+            scores = [rouge.get_scores(hyps=hyp, refs=ref, avg=False)[0]['rouge-1'] for hyp in synopsises]
+        except RecursionError as err:
+            print(err)
+            return None
+
+        # max_fscore_index + 1が採用する文数に相当
+        max_f_score_index = np.argmax([score['f'] for score in scores])
+
+        binary_sentences = np.zeros(len(emb_cossim_data['Y']), dtype=np.int)
+        pos_indexes = high_score_line_indexes[:max_f_score_index + 1]
+        binary_sentences[pos_indexes] = 1
+
+        per_novel_data_dict = dict()
+        per_novel_data_dict['error_line_indexes'] = emb_cossim_data['error_line_indexes']
+        per_novel_data_dict['X'] = emb_cossim_data['X']
+        per_novel_data_dict['Y'] = binary_sentences
+        per_novel_data_dict['threshold'] = emb_cossim_data['Y'][high_score_line_indexes[max_f_score_index]]
+        per_novel_data_dict['rouge'] = {'f': scores[max_f_score_index]['f'],
+                                        'r': scores[max_f_score_index]['r'],
+                                        'p': scores[max_f_score_index]['p']}
+        return per_novel_data_dict
 
     def create_data_dict(self):
         emb_cossim_data_dict = self.embedding_and_cossim_data.non_seq_data_dict_emb_cossim(tensor_refresh=False)
         data_dict = dict()
+        sys.setrecursionlimit(20000)
         for file_index, (ncode, data) in enumerate(emb_cossim_data_dict.items()):
             print('[INFO] num of processed novel count: {}'.format(file_index))
-            print(ncode)
             per_novel_dict = self.create_per_novel_data_dict(ncode=ncode, emb_cossim_data=data)
-            # return
-
+            if per_novel_dict is None:
+                continue
+            data_dict[ncode] = per_novel_dict
+        print('saving data_dict...')
+        with open(self.embedding_and_bin_classified_sentence_data_dict_path, 'wb') as f:
+            joblib.dump(data_dict, f, compress=3)
+        return data_dict
 
     def embedding_and_bin_classified_sentence_data_dict(self, data_refresh=False):
         """
