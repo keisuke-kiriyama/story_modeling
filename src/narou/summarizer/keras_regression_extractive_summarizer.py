@@ -23,7 +23,7 @@ class KerasRegressionExtractiveSummarizer:
         # DATA SUPPLIER
         self.data_supplier = EmbeddingAndCosSimData()
 
-        # TRAINING DATA
+        # DATA
         self.data_dict = self.data_supplier.non_seq_data_dict_emb_cossim(tensor_refresh=False)
         self.training_data_dict, self.test_data_dict = self.data_supplier.corpus.dict_train_test_split(self.data_dict, splited_refresh=False, test_size=0.2)
         self.X_train, self.Y_train = self.data_supplier.corpus.data_dict_to_tensor(data_dict=self.training_data_dict)

@@ -27,9 +27,9 @@ class EmbeddingAndBinClassifiedSentenceData:
          threshold: float,
          rouge:
             {
-            f: float,
-            recall: float,
-            precision: float
+            f: float
+            r: float,
+            p: float
             }
         }
     }
@@ -45,9 +45,9 @@ class EmbeddingAndBinClassifiedSentenceData:
         self.embedding_and_bin_classified_sentence_data_dict_path = os.path.join(settings.NAROU_MODEL_DIR_PATH,
                                                                                  'embedding_and_bin_classified_sentence',
                                                                                  'embedding_and_bin_classified_sentence.txt')
-
         # PROPERTY
         self.max_sentence_count = 30
+        self.sentence_vector_size = 200
 
     def load_data_dict(self):
         print('loading data dict...')
@@ -155,6 +155,4 @@ def max_synopsis_sentence_count():
 if __name__ == '__main__':
     supplier = EmbeddingAndBinClassifiedSentenceData()
     supplier.create_data_dict()
-
-
 
