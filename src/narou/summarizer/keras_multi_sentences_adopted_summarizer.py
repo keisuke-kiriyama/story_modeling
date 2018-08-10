@@ -20,7 +20,7 @@ class KerasMultiSentencesAdoptedSummarizer:
 
     def __init__(self):
         # PATH
-        self.trained_model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'msa_trained_model', '180809','')
+        self.trained_model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'msa_trained_model', '180810', 'model_01_vloss0.0144.hdf5')
         self.train_data_ncodes_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'msa_trained_model', 'train_data_ncodes.txt')
         self.test_data_ncodes_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'msa_trained_model', 'test_data_ncodes.txt')
 
@@ -118,8 +118,9 @@ class KerasMultiSentencesAdoptedSummarizer:
             model.add(Dropout(self.p_keep))
         model.add(Dense(self.n_out))
         model.add(Activation('softmax'))
-        model.compile(loss='categorical_crossentropy',
-                      optimizer=Adam(lr=0.01, beta_1=0.9, beta_2=0.999))
+        model.compile(loss='binary_crossentropy',
+                      optimizer=Adam(lr=0.01, beta_1=0.9, beta_2=0.999),
+                      metrics=['accuracy'])
         return model
 
     def fit(self):
@@ -135,7 +136,7 @@ class KerasMultiSentencesAdoptedSummarizer:
                                        patience=10)
         checkpoint = ModelCheckpoint(filepath=os.path.join(settings.NAROU_MODEL_DIR_PATH,
                                                            'msa_trained_model',
-                                                           '180809',
+                                                           '180810',
                                                            'model_{epoch:02d}_vloss{val_loss:.4f}.hdf5'),
                                      save_best_only=True)
         hist = model.fit(self.X_train, self.Y_train, epochs=epochs,
@@ -146,6 +147,136 @@ class KerasMultiSentencesAdoptedSummarizer:
         self.trained_model = model
         self.training_hist = hist
 
+    def generate_ref_synopsis(self, ncode):
+        """
+        参照要約を生成
+        """
+        synopsis_lines = self.corpus.get_synopsis_lines(ncode)
+        wakati_synopsis = self.corpus.wakati(''.join(synopsis_lines))
+        return wakati_synopsis
+
+    def generate_opt_synopsis(self, ncode):
+        """
+        本文から重要文を選択する際の最も理想的な選択によりあらすじを生成
+        """
+        data = self.data_dict[ncode]
+        contents_lines = self.corpus.get_contents_lines(ncode)
+        removed_contents_lines = np.array(self.corpus.remove_error_line_indexes_from_contents_lines(contents_lines,
+                                                                                           data['error_line_indexes']))
+        positive_sentence_index = np.where(data['Y']==1)
+        opt_synopsis = self.corpus.wakati(''.join(removed_contents_lines[positive_sentence_index]))
+        return opt_synopsis
+
+    def generate_lead_synopsis(self, ncode):
+        """
+        本文先頭から正解のあらすじ文と同じ文数選択することによりあらすじを生成
+        """
+        sentence_count = len(self.corpus.get_synopsis_lines(ncode))
+        contents_lines = self.corpus.get_contents_lines(ncode)
+        lead_synopsis_lines = contents_lines[:sentence_count]
+        lead_synopsis = self.corpus.wakati(''.join(lead_synopsis_lines))
+        return lead_synopsis
+
+    def generate_pro_synopsis(self, ncode):
+        """
+        学習済みモデルから推測したあらすじ
+        """
+        data = self.data_dict[ncode]
+        pred = self.trained_model.predict_classes(data['X'], batch_size=1)
+        positive_index = np.where(pred==1)
+        if positive_index[0].size == 0:
+            return '*'
+        contents_lines = self.corpus.get_contents_lines(ncode)
+        removed_contents_lines = np.array(self.corpus.remove_error_line_indexes_from_contents_lines(contents_lines,
+                                                                                           data['error_line_indexes']))
+        pro_synopsis = self.corpus.wakati(''.join(removed_contents_lines[positive_index]))
+        return pro_synopsis
+
+
+
+    def eval_synopsis_generation(self):
+        """
+        あらすじ生成の評価
+        - ROUGE-1
+        - ROUGE-2
+        - ROUGE-L
+        """
+        print('evaluating ...')
+        if not self.trained_model:
+            print("haven't trained yet")
+            return
+        # PROPOSED
+        refs = [] # 参照要約
+        opts = [] # 類似度上位から文選択(理論上の上限値)
+        leads = [] # 文章の先頭から数文選択
+        pros = [] # 提案手法要約
+
+        for ncode in self.test_data_ncodes:
+            ref = self.generate_ref_synopsis(ncode)
+            opt = self.generate_opt_synopsis(ncode)
+            lead = self.generate_lead_synopsis(ncode)
+            pro = self.generate_pro_synopsis(ncode)
+
+            refs.append(ref)
+            opts.append(opt)
+            leads.append(lead)
+            pros.append(pro)
+
+        sys.setrecursionlimit(20000)
+        rouge = Rouge()
+        # OPTIMAL EVALUATION
+        scores = rouge.get_scores(opts, refs, avg=True)
+        print('[OPTIMAL]')
+        print('[ROUGE-1]')
+        print('f-measure: {}'.format(scores['rouge-1']['f']))
+        print('precision: {}'.format(scores['rouge-1']['r']))
+        print('recall: {}'.format(scores['rouge-1']['p']))
+        print('[ROUGE-2]')
+        print('f-measure: {}'.format(scores['rouge-2']['f']))
+        print('precision: {}'.format(scores['rouge-2']['r']))
+        print('recall: {}'.format(scores['rouge-2']['p']))
+        print('[ROUGE-L]')
+        print('f-measure: {}'.format(scores['rouge-l']['f']))
+        print('precision: {}'.format(scores['rouge-l']['r']))
+        print('recall: {}'.format(scores['rouge-l']['p']))
+        print('\n')
+
+        # LEAD EVALUATION
+        scores = rouge.get_scores(leads, refs, avg=True)
+        print('[LEAD]')
+        print('[ROUGE-1]')
+        print('f-measure: {}'.format(scores['rouge-1']['f']))
+        print('precision: {}'.format(scores['rouge-1']['r']))
+        print('recall: {}'.format(scores['rouge-1']['p']))
+        print('[ROUGE-2]')
+        print('f-measure: {}'.format(scores['rouge-2']['f']))
+        print('precision: {}'.format(scores['rouge-2']['r']))
+        print('recall: {}'.format(scores['rouge-2']['p']))
+        print('[ROUGE-L]')
+        print('f-measure: {}'.format(scores['rouge-l']['f']))
+        print('precision: {}'.format(scores['rouge-l']['r']))
+        print('recall: {}'.format(scores['rouge-l']['p']))
+        print('\n')
+
+        # PROPOSED EVALUATION
+        scores = rouge.get_scores(pros, refs, avg=True)
+        print('[PROPOSED METHOD EVALUATION]')
+        print('[INFO] num of empty inferred synopsis: {}'.format(len(np.where(np.array(pros) == '*'))))
+        print('[ROUGE-1]')
+        print('f-measure: {}'.format(scores['rouge-1']['f']))
+        print('precision: {}'.format(scores['rouge-1']['r']))
+        print('recall: {}'.format(scores['rouge-1']['p']))
+        print('[ROUGE-2]')
+        print('f-measure: {}'.format(scores['rouge-2']['f']))
+        print('precision: {}'.format(scores['rouge-2']['r']))
+        print('recall: {}'.format(scores['rouge-2']['p']))
+        print('[ROUGE-L]')
+        print('f-measure: {}'.format(scores['rouge-l']['f']))
+        print('precision: {}'.format(scores['rouge-l']['r']))
+        print('recall: {}'.format(scores['rouge-l']['p']))
+        print('\n')
+
 if __name__ == '__main__':
     summarizer = KerasMultiSentencesAdoptedSummarizer()
-    summarizer.fit()
+    # summarizer.fit()
+    summarizer.eval_synopsis_generation()
