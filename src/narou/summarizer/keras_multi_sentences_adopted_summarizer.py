@@ -39,7 +39,7 @@ class KerasMultiSentencesAdoptedSummarizer:
         self.X_test, self.Y_test = self.data_dict_to_tensor(ncodes=self.test_data_ncodes)
 
         # DNN MODEL PROPERTY
-        self.n_in = self.data_supplier.sentence_vector_size
+        self.n_in = self.data_supplier.input_vector_size
         self.n_hiddens = [800, 800]
         self.n_out = 2
         self.activation = 'relu'

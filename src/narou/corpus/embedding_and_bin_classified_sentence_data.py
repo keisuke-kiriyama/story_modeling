@@ -47,7 +47,7 @@ class EmbeddingAndBinClassifiedSentenceData:
                                                                                  'embedding_and_bin_classified_sentence.txt')
         # PROPERTY
         self.max_sentence_count = 30
-        self.sentence_vector_size = 200
+        self.input_vector_size = 200
 
     def load_data_dict(self):
         print('loading data dict...')
@@ -57,7 +57,7 @@ class EmbeddingAndBinClassifiedSentenceData:
 
     def create_per_novel_data_dict(self, ncode, emb_cossim_data):
         """
-        書く小説のデータを作成する
+        各小説のデータを作成する
         :param emb_cossim_data: dict
         :return: dict
         {
