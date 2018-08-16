@@ -15,6 +15,7 @@ from itertools import chain
 
 from src.util import settings
 from src.narou.corpus.embedding_and_bin_classified_sentence_data import EmbeddingAndBinClassifiedSentenceData
+from src.narou.threshold.threshold_estimator import ThresholdEstimator
 
 class KerasRegressionExtractiveSummarizer:
 
@@ -29,6 +30,9 @@ class KerasRegressionExtractiveSummarizer:
 
         # CORPUS PROCESSOR
         self.corpus = self.data_supplier.corpus
+
+        # THRESHOLD ESTIMATOR
+        self.threshold_estimator = ThresholdEstimator()
 
         # DATA
         raw_data_dict = self.data_supplier.embedding_and_bin_classified_sentence_data_dict(data_refresh=False)
@@ -147,36 +151,6 @@ class KerasRegressionExtractiveSummarizer:
         self.trained_model = model
         self.training_hist = hist
 
-    def generate_ref_synopsis(self, ncode):
-        """
-        参照要約を生成
-        """
-        synopsis_lines = self.corpus.get_synopsis_lines(ncode)
-        wakati_synopsis = self.corpus.wakati(''.join(synopsis_lines))
-        return wakati_synopsis
-
-    def generate_opt_synopsis(self, ncode):
-        """
-        本文から重要文を選択する際の最も理想的な選択によりあらすじを生成
-        """
-        data = self.data_dict[ncode]
-        contents_lines = self.corpus.get_contents_lines(ncode)
-        removed_contents_lines = np.array(self.corpus.remove_error_line_indexes_from_contents_lines(contents_lines,
-                                                                                           data['error_line_indexes']))
-        positive_sentence_index = np.where(data['Y']==1)
-        opt_synopsis = self.corpus.wakati(''.join(removed_contents_lines[positive_sentence_index]))
-        return opt_synopsis
-
-    def generate_lead_synopsis(self, ncode):
-        """
-        本文先頭から正解のあらすじ文と同じ文数選択することによりあらすじを生成
-        """
-        sentence_count = len(self.corpus.get_synopsis_lines(ncode))
-        contents_lines = self.corpus.get_contents_lines(ncode)
-        lead_synopsis_lines = contents_lines[:sentence_count]
-        lead_synopsis = self.corpus.wakati(''.join(lead_synopsis_lines))
-        return lead_synopsis
-
     def eval(self):
         """
         学習済みモデルの評価
@@ -203,12 +177,12 @@ class KerasRegressionExtractiveSummarizer:
             ref = self.generate_ref_synopsis(ncode)
             opt = self.generate_opt_synopsis(ncode)
             lead = self.generate_lead_synopsis(ncode)
-            # pro = self.generate_pro_synopsis(ncode)
+            pro = self.generate_pro_synopsis(ncode)
 
             refs.append(ref)
             opts.append(opt)
             leads.append(lead)
-            # pros.append(pro)
+            pros.append(pro)
 
         sys.setrecursionlimit(20000)
         rouge = Rouge()
@@ -247,21 +221,74 @@ class KerasRegressionExtractiveSummarizer:
         print('\n')
 
         # PROPOSED EVALUATION
-        # scores = rouge.get_scores(pros, refs, avg=True)
-        # print('[PROPOSED METHOD EVALUATION]')
-        # print('[ROUGE-1]')
-        # print('f-measure: {}'.format(scores['rouge-1']['f']))
-        # print('precision: {}'.format(scores['rouge-1']['r']))
-        # print('recall: {}'.format(scores['rouge-1']['p']))
-        # print('[ROUGE-2]')
-        # print('f-measure: {}'.format(scores['rouge-2']['f']))
-        # print('precision: {}'.format(scores['rouge-2']['r']))
-        # print('recall: {}'.format(scores['rouge-2']['p']))
-        # print('[ROUGE-L]')
-        # print('f-measure: {}'.format(scores['rouge-l']['f']))
-        # print('precision: {}'.format(scores['rouge-l']['r']))
-        # print('recall: {}'.format(scores['rouge-l']['p']))
-        # print('\n')
+        scores = rouge.get_scores(pros, refs, avg=True)
+        print('[PROPOSED METHOD EVALUATION]')
+        print('[ROUGE-1]')
+        print('f-measure: {}'.format(scores['rouge-1']['f']))
+        print('precision: {}'.format(scores['rouge-1']['r']))
+        print('recall: {}'.format(scores['rouge-1']['p']))
+        print('[ROUGE-2]')
+        print('f-measure: {}'.format(scores['rouge-2']['f']))
+        print('precision: {}'.format(scores['rouge-2']['r']))
+        print('recall: {}'.format(scores['rouge-2']['p']))
+        print('[ROUGE-L]')
+        print('f-measure: {}'.format(scores['rouge-l']['f']))
+        print('precision: {}'.format(scores['rouge-l']['r']))
+        print('recall: {}'.format(scores['rouge-l']['p']))
+        print('\n')
+
+    def generate_ref_synopsis(self, ncode):
+        """
+        参照要約を生成
+        """
+        synopsis_lines = self.corpus.get_synopsis_lines(ncode)
+        wakati_synopsis = self.corpus.wakati(''.join(synopsis_lines))
+        return wakati_synopsis
+
+    def generate_opt_synopsis(self, ncode):
+        """
+        本文から重要文を選択する際の最も理想的な選択によりあらすじを生成
+        """
+        data = self.data_dict[ncode]
+        contents_lines = self.corpus.get_contents_lines(ncode)
+        removed_contents_lines = np.array(self.corpus.remove_error_line_indexes_from_contents_lines(contents_lines,
+                                                                                           data['error_line_indexes']))
+        positive_sentence_index = np.where(data['Y']==1)
+        opt_synopsis = self.corpus.wakati(''.join(removed_contents_lines[positive_sentence_index]))
+        return opt_synopsis
+
+    def generate_lead_synopsis(self, ncode):
+        """
+        本文先頭から正解のあらすじ文と同じ文数選択することによりあらすじを生成
+        """
+        sentence_count = len(self.corpus.get_synopsis_lines(ncode))
+        contents_lines = self.corpus.get_contents_lines(ncode)
+        lead_synopsis_lines = contents_lines[:sentence_count]
+        lead_synopsis = self.corpus.wakati(''.join(lead_synopsis_lines))
+        return lead_synopsis
+
+    def generate_pro_synopsis(self, ncode):
+        """
+        提案手法の学習済みモデルによりあらすじの生成を行う
+        """
+        data = self.data_dict[ncode]
+        Y_pred = self.trained_model.predict(data['X'])
+        Y_pred = np.array(list(chain.from_iterable(Y_pred)))
+
+        # 閾値推定モデルの入力の形に変換し閾値を推定する
+        threshold_estimator_input = self.convert_to_threshold_estimator_input(scores=Y_pred)
+        threshold_estimator_input = np.reshape(threshold_estimator_input, (1, self.threshold_estimator.n_in))
+        threshold = self.threshold_estimator.trained_model.predict(threshold_estimator_input)[0]
+
+        contents_lines = self.corpus.get_contents_lines(ncode)
+        removed_contents_lines = np.array(self.corpus.remove_error_line_indexes_from_contents_lines(contents_lines,
+                                                                                           error_line_indexes=data['error_line_indexes']))
+        pro_synopsis_lines = removed_contents_lines[np.where(Y_pred > threshold)]
+        pro_synopsis = self.corpus.wakati(''.join(pro_synopsis_lines))
+        return pro_synopsis
+
+
+
 
     def show_training_process(self):
         """
@@ -275,6 +302,21 @@ class KerasRegressionExtractiveSummarizer:
         plt.xlabel('epochs')
         plt.show()
 
+    def convert_to_threshold_estimator_input(self, scores):
+        """
+        類似度のベクトルを閾値推定モデルのインプットのベクトルに変換する
+        :param scores:  np.array
+        :return: np.array
+        """
+        avg = np.average(scores)
+        std = np.std(scores)
+        # 0~1で交差0.01の等差数列を境界としてscoresのヒストグラムを作る
+        bins = np.arange(0, 1, 0.01)
+        hist, _ = np.histogram(scores, bins=bins, density=True)
+        hist = hist / 100
+        input = np.append(hist, avg)
+        input = np.append(input, std)
+        return input
 
 if __name__ == '__main__':
     summarizer = KerasRegressionExtractiveSummarizer()
