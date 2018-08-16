@@ -16,6 +16,7 @@ class EmbeddingAndBinClassifiedSentenceData:
     error_line_indexes: データ作成時にエラーがでた文のインデックス
     X: 文中の単語ベクトルの平均ベクトル
     Y: 採用された文を正例、採用されなかった文を負例
+    Y_score: 本文とあらすじ文との類似度が最も高い値
     threshold: 最後に採用された文に付与されたスコア
     rouge: 最も値が高かった際のROUGEスコア
     {
@@ -23,7 +24,8 @@ class EmbeddingAndBinClassifiedSentenceData:
          {
          error_line_indexes: np.array,
          X: np.array,
-         y: np.array,
+         Y: np.array,
+         Y_score: np.array,
          threshold: float,
          rouge:
             {
@@ -63,7 +65,7 @@ class EmbeddingAndBinClassifiedSentenceData:
         {
          error_line_indexes: np.array,
          X: np.array,
-         y: np.array,
+         Y: np.array,
          threshold: float,
          rouge:
             {
@@ -105,6 +107,7 @@ class EmbeddingAndBinClassifiedSentenceData:
         per_novel_data_dict['error_line_indexes'] = emb_cossim_data['error_line_indexes']
         per_novel_data_dict['X'] = emb_cossim_data['X']
         per_novel_data_dict['Y'] = binary_sentences
+        per_novel_data_dict['Y_score'] = emb_cossim_data['Y']
         per_novel_data_dict['threshold'] = emb_cossim_data['Y'][high_score_line_indexes[max_f_score_index]]
         per_novel_data_dict['rouge'] = {'f': scores[max_f_score_index]['f'],
                                         'r': scores[max_f_score_index]['r'],

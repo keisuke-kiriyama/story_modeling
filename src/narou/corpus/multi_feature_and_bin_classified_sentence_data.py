@@ -64,6 +64,7 @@ class MultiFeatureAndBinClassifiedSentenceData:
         """
         print('processing Ncode: {}'.format(ncode))
         m = MeCab.Tagger('-d /usr/local/lib/mecab/dic/mecab-ipadic-neologd')
+        print(base_data.keys())
 
         contents_lines = self.corpus.get_contents_lines(ncode)
         removed_contents_lines = self.corpus.remove_error_line_indexes_from_contents_lines(contents_lines,
@@ -107,9 +108,9 @@ class MultiFeatureAndBinClassifiedSentenceData:
             if per_novel_dict is None:
                 continue
             data_dict[ncode] = per_novel_dict
-        print('saving data_dict...')
-        with open(self.multi_feature_and_bin_classified_sentence_data_dict_path, 'wb') as f:
-            joblib.dump(data_dict, f, compress=3)
+        # print('saving data_dict...')
+        # with open(self.multi_feature_and_bin_classified_sentence_data_dict_path, 'wb') as f:
+        #     joblib.dump(data_dict, f, compress=3)
         return data_dict
 
     def multi_feature_and_bin_classified_sentence_data_dict(self, data_refresh=False):
