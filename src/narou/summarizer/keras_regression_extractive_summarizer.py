@@ -14,7 +14,7 @@ import joblib
 from itertools import chain
 
 from src.util import settings
-from src.narou.corpus.embedding_and_bin_classified_sentence_data import EmbeddingAndBinClassifiedSentenceData
+from src.narou.corpus.multi_feature_and_bin_classified_sentence_data import MultiFeatureAndBinClassifiedSentenceData
 from src.narou.threshold.threshold_estimator import ThresholdEstimator
 
 class KerasRegressionExtractiveSummarizer:
@@ -26,7 +26,7 @@ class KerasRegressionExtractiveSummarizer:
         self.test_data_ncodes_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'reg_trained_model', 'test_data_ncodes.txt')
 
         # DATA SUPPLIER
-        self.data_supplier = EmbeddingAndBinClassifiedSentenceData()
+        self.data_supplier = MultiFeatureAndBinClassifiedSentenceData()
 
         # CORPUS PROCESSOR
         self.corpus = self.data_supplier.corpus
@@ -35,7 +35,7 @@ class KerasRegressionExtractiveSummarizer:
         self.threshold_estimator = ThresholdEstimator()
 
         # DATA
-        raw_data_dict = self.data_supplier.embedding_and_bin_classified_sentence_data_dict(data_refresh=False)
+        raw_data_dict = self.data_supplier.multi_feature_and_bin_classified_sentence_data_dict(data_refresh=False)
         self.data_dict = self.data_screening(raw_data_dict, rouge_lower_limit=0.35)
         self.train_data_ncodes, self.test_data_ncodes = self.ncodes_train_test_split()
         self.X_train, self.Y_train = self.data_dict_to_tensor(ncodes=self.train_data_ncodes)
@@ -140,7 +140,7 @@ class KerasRegressionExtractiveSummarizer:
                                        patience=10)
         checkpoint = ModelCheckpoint(filepath=os.path.join(settings.NAROU_MODEL_DIR_PATH,
                                                            'reg_trained_model',
-                                                           '180727',
+                                                           '180817',
                                                            'model_{epoch:02d}_vloss{val_loss:.4f}.hdf5'),
                                      save_best_only=True)
         hist = model.fit(self.X_train, self.Y_train, epochs=epochs,
@@ -327,8 +327,8 @@ class KerasRegressionExtractiveSummarizer:
 
 if __name__ == '__main__':
     summarizer = KerasRegressionExtractiveSummarizer()
-    # summarizer.fit()
-    summarizer.eval()
+    summarizer.fit()
+    # summarizer.eval()
     # summarizer.show_training_process()
     # summarizer.verificate_synopsis_generation()
     # summarizer.generate_synopsis('n0011cx', sentence_count=8, sim_threshold=0.3)
