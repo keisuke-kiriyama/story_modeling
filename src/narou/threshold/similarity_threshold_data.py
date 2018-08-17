@@ -21,7 +21,7 @@ class SimilarityThresholdData:
         self.data_supplier = EmbeddingAndBinClassifiedSentenceData()
 
         # PROPERTY
-        self.input_vector_size = 101
+        self.input_vector_size = 103
 
     def load_data(self):
         print('loading similarity threshold data...')
@@ -41,12 +41,16 @@ class SimilarityThresholdData:
         scores = data['Y_score']
         avg = np.average(scores)
         std = np.std(scores)
+        max = np.max(scores)
+        min = np.min(scores)
         # 0~1で交差0.01の等差数列を境界としてscoresのヒストグラムを作る
         bins = np.arange(0, 1, 0.01)
         hist, _ = np.histogram(scores, bins=bins, density=True)
         hist = hist / 100
         X = np.append(hist, avg)
         X = np.append(X, std)
+        X = np.append(X, max)
+        X = np.append(X, min)
         Y = data['threshold']
         return X, Y
 

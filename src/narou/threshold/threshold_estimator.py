@@ -19,7 +19,7 @@ class ThresholdEstimator:
 
     def __init__(self):
         # PATH
-        self.trained_model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'threshold_estimate_trained_model', '180816', 'model_45_vloss0.0104.hdf5')
+        self.trained_model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'threshold_estimate_trained_model', '180816', 'model_38_vloss0.0057.hdf5')
 
         # DATA SUPPLIER
         self.data_supplier = SimilarityThresholdData()

@@ -178,6 +178,8 @@ class KerasRegressionExtractiveSummarizer:
             opt = self.generate_opt_synopsis(ncode)
             lead = self.generate_lead_synopsis(ncode)
             pro = self.generate_pro_synopsis(ncode)
+            if pro == '':
+                pro = '*'
 
             refs.append(ref)
             opts.append(opt)
@@ -285,10 +287,11 @@ class KerasRegressionExtractiveSummarizer:
                                                                                            error_line_indexes=data['error_line_indexes']))
         pro_synopsis_lines = removed_contents_lines[np.where(Y_pred > threshold)]
         pro_synopsis = self.corpus.wakati(''.join(pro_synopsis_lines))
+        print('[INFO]: proposed method synopsis generation')
+        print('threshold: {}'.format(threshold))
+        print('max_score: {}'.format(max(Y_pred)))
+        print('\n')
         return pro_synopsis
-
-
-
 
     def show_training_process(self):
         """
@@ -310,12 +313,16 @@ class KerasRegressionExtractiveSummarizer:
         """
         avg = np.average(scores)
         std = np.std(scores)
+        max = np.max(scores)
+        min = np.min(scores)
         # 0~1で交差0.01の等差数列を境界としてscoresのヒストグラムを作る
         bins = np.arange(0, 1, 0.01)
         hist, _ = np.histogram(scores, bins=bins, density=True)
         hist = hist / 100
         input = np.append(hist, avg)
         input = np.append(input, std)
+        input = np.append(input, max)
+        input = np.append(input, min)
         return input
 
 if __name__ == '__main__':
