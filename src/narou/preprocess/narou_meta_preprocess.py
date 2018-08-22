@@ -96,7 +96,10 @@ def remove_publicity_sentences(sentences):
         '執筆中',
         'pixiv',
         '２ｃｈ',
-        '2ch'
+        '2ch',
+        '鬱展開',
+        'チート',
+        '読みにくい'
     ]
     removed_sentences = []
     for sentence in sentences:

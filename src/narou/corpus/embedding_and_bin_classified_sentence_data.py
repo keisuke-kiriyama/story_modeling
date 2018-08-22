@@ -108,7 +108,8 @@ class EmbeddingAndBinClassifiedSentenceData:
         per_novel_data_dict['X'] = emb_cossim_data['X']
         per_novel_data_dict['Y'] = binary_sentences
         per_novel_data_dict['Y_score'] = emb_cossim_data['Y']
-        per_novel_data_dict['threshold'] = emb_cossim_data['Y'][high_score_line_indexes[max_f_score_index]]
+        # 採用されなかった文で最も値が高かったもののスコアを閾値とする
+        per_novel_data_dict['threshold'] = emb_cossim_data['Y'][high_score_line_indexes[min(max_f_score_index + 1, max_sentence_count - 1)]]
         per_novel_data_dict['rouge'] = {'f': scores[max_f_score_index]['f'],
                                         'r': scores[max_f_score_index]['r'],
                                         'p': scores[max_f_score_index]['p']}
@@ -139,7 +140,6 @@ class EmbeddingAndBinClassifiedSentenceData:
         else:
             data_dict = self.create_data_dict()
         return data_dict
-
 
 def max_synopsis_sentence_count():
     corpus = NarouCorpus()

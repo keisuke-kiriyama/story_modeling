@@ -19,7 +19,7 @@ class ThresholdEstimator:
 
     def __init__(self):
         # PATH
-        self.trained_model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'threshold_estimate_trained_model', '180816', 'model_38_vloss0.0057.hdf5')
+        self.trained_model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'threshold_estimate_trained_model', '180820', 'model_30_vloss0.0078.hdf5')
 
         # DATA SUPPLIER
         self.data_supplier = SimilarityThresholdData()
@@ -72,7 +72,7 @@ class ThresholdEstimator:
                                        patience=10)
         checkpoint = ModelCheckpoint(filepath=os.path.join(settings.NAROU_MODEL_DIR_PATH,
                                                            'threshold_estimate_trained_model',
-                                                           '180816',
+                                                           '180820',
                                                            'model_{epoch:02d}_vloss{val_loss:.4f}.hdf5'),
                                      save_best_only=True)
         hist = model.fit(self.X_train, self.Y_train, epochs=epochs,

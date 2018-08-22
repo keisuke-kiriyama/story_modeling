@@ -21,7 +21,7 @@ class KerasRegressionExtractiveSummarizer:
 
     def __init__(self):
         # PATH
-        self.trained_model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'reg_trained_model', '180727','model_04_vloss0.0060.hdf5')
+        self.trained_model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'reg_trained_model', '180817','model_26_vloss0.0058.hdf5')
         self.train_data_ncodes_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'reg_trained_model', 'train_data_ncodes.txt')
         self.test_data_ncodes_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'reg_trained_model', 'test_data_ncodes.txt')
 
@@ -36,8 +36,8 @@ class KerasRegressionExtractiveSummarizer:
 
         # DATA
         raw_data_dict = self.data_supplier.multi_feature_and_bin_classified_sentence_data_dict(data_refresh=False)
-        self.data_dict = self.data_screening(raw_data_dict, rouge_lower_limit=0.35)
-        self.train_data_ncodes, self.test_data_ncodes = self.ncodes_train_test_split()
+        self.data_dict = self.data_screening(raw_data_dict, rouge_lower_limit=0.40)
+        self.train_data_ncodes, self.test_data_ncodes = self.ncodes_train_test_split(True)
         self.X_train, self.Y_train = self.data_dict_to_tensor(ncodes=self.train_data_ncodes)
         self.X_train, self.X_validation, self.Y_train, self.Y_validation = train_test_split(self.X_train, self.Y_train, test_size=0.2)
         self.X_test, self.Y_test = self.data_dict_to_tensor(ncodes=self.test_data_ncodes)
@@ -140,7 +140,7 @@ class KerasRegressionExtractiveSummarizer:
                                        patience=10)
         checkpoint = ModelCheckpoint(filepath=os.path.join(settings.NAROU_MODEL_DIR_PATH,
                                                            'reg_trained_model',
-                                                           '180817',
+                                                           '180822',
                                                            'model_{epoch:02d}_vloss{val_loss:.4f}.hdf5'),
                                      save_best_only=True)
         hist = model.fit(self.X_train, self.Y_train, epochs=epochs,
@@ -172,12 +172,19 @@ class KerasRegressionExtractiveSummarizer:
         opts = [] # 類似度上位から文選択(理論上の上限値)
         leads = [] # 文章の先頭から数文選択
         pros = [] # 提案手法要約
+        # ones = [] # 回帰の結果から上位1文取得
+        # twos = [] # 回帰の結果から上位2文取得
+        # threes = [] # 回帰の結果から上位3文取得
+        # fours = [] # 回帰の結果から上位4文取得
+        fives = [] # 回帰の結果から上位5文取得
+        # sixs = [] # 回帰の結果から上位6文取得
 
         for ncode in self.test_data_ncodes:
             ref = self.generate_ref_synopsis(ncode)
             opt = self.generate_opt_synopsis(ncode)
             lead = self.generate_lead_synopsis(ncode)
             pro = self.generate_pro_synopsis(ncode)
+            counts = self.generate_counts_synopsis(ncode, max_sentence_count=6)
             if pro == '':
                 pro = '*'
 
@@ -185,6 +192,13 @@ class KerasRegressionExtractiveSummarizer:
             opts.append(opt)
             leads.append(lead)
             pros.append(pro)
+            # ones.append(counts[0])
+            # twos.append(counts[1])
+            # threes.append(counts[2])
+            # fours.append(counts[3])
+            fives.append(counts[4])
+            # sixs.append(counts[5])
+
 
         sys.setrecursionlimit(20000)
         rouge = Rouge()
@@ -192,52 +206,82 @@ class KerasRegressionExtractiveSummarizer:
         scores = rouge.get_scores(opts, refs, avg=True)
         print('[OPTIMAL]')
         print('[ROUGE-1]')
-        print('f-measure: {}'.format(scores['rouge-1']['f']))
-        print('precision: {}'.format(scores['rouge-1']['r']))
-        print('recall: {}'.format(scores['rouge-1']['p']))
-        print('[ROUGE-2]')
-        print('f-measure: {}'.format(scores['rouge-2']['f']))
-        print('precision: {}'.format(scores['rouge-2']['r']))
-        print('recall: {}'.format(scores['rouge-2']['p']))
-        print('[ROUGE-L]')
-        print('f-measure: {}'.format(scores['rouge-l']['f']))
-        print('precision: {}'.format(scores['rouge-l']['r']))
-        print('recall: {}'.format(scores['rouge-l']['p']))
+        print('f-measure: {:.3f}'.format(scores['rouge-1']['f']))
+        print('precision: {:.3f}'.format(scores['rouge-1']['r']))
+        print('recall: {:.3f}'.format(scores['rouge-1']['p']))
         print('\n')
 
         # LEAD EVALUATION
         scores = rouge.get_scores(leads, refs, avg=True)
         print('[LEAD]')
         print('[ROUGE-1]')
-        print('f-measure: {}'.format(scores['rouge-1']['f']))
-        print('precision: {}'.format(scores['rouge-1']['r']))
-        print('recall: {}'.format(scores['rouge-1']['p']))
-        print('[ROUGE-2]')
-        print('f-measure: {}'.format(scores['rouge-2']['f']))
-        print('precision: {}'.format(scores['rouge-2']['r']))
-        print('recall: {}'.format(scores['rouge-2']['p']))
-        print('[ROUGE-L]')
-        print('f-measure: {}'.format(scores['rouge-l']['f']))
-        print('precision: {}'.format(scores['rouge-l']['r']))
-        print('recall: {}'.format(scores['rouge-l']['p']))
+        print('f-measure: {:.3f}'.format(scores['rouge-1']['f']))
+        print('precision: {:.3f}'.format(scores['rouge-1']['r']))
+        print('recall: {:.3f}'.format(scores['rouge-1']['p']))
         print('\n')
 
         # PROPOSED EVALUATION
         scores = rouge.get_scores(pros, refs, avg=True)
         print('[PROPOSED METHOD EVALUATION]')
         print('[ROUGE-1]')
-        print('f-measure: {}'.format(scores['rouge-1']['f']))
-        print('precision: {}'.format(scores['rouge-1']['r']))
-        print('recall: {}'.format(scores['rouge-1']['p']))
-        print('[ROUGE-2]')
-        print('f-measure: {}'.format(scores['rouge-2']['f']))
-        print('precision: {}'.format(scores['rouge-2']['r']))
-        print('recall: {}'.format(scores['rouge-2']['p']))
-        print('[ROUGE-L]')
-        print('f-measure: {}'.format(scores['rouge-l']['f']))
-        print('precision: {}'.format(scores['rouge-l']['r']))
-        print('recall: {}'.format(scores['rouge-l']['p']))
+        print('f-measure: {:.3f}'.format(scores['rouge-1']['f']))
+        print('precision: {:.3f}'.format(scores['rouge-1']['r']))
+        print('recall: {:.3f}'.format(scores['rouge-1']['p']))
         print('\n')
+
+        # # ONE SENTENCE
+        # scores = rouge.get_scores(ones, refs, avg=True)
+        # print('[ONE SENTENCE ADOPTED EVALUATION]')
+        # print('[ROUGE-1]')
+        # print('f-measure: {:.3f}'.format(scores['rouge-1']['f']))
+        # print('precision: {:.3f}'.format(scores['rouge-1']['r']))
+        # print('recall: {:.3f}'.format(scores['rouge-1']['p']))
+        # print('\n')
+        #
+        # # TWO SENTENCES
+        # scores = rouge.get_scores(twos, refs, avg=True)
+        # print('[TWO SENTENCE ADOPTED EVALUATION]')
+        # print('[ROUGE-1]')
+        # print('f-measure: {:.3f}'.format(scores['rouge-1']['f']))
+        # print('precision: {:.3f}'.format(scores['rouge-1']['r']))
+        # print('recall: {:.3f}'.format(scores['rouge-1']['p']))
+        # print('\n')
+        #
+        # # THREE SENTENCES
+        # scores = rouge.get_scores(threes, refs, avg=True)
+        # print('[THREE SENTENCE ADOPTED EVALUATION]')
+        # print('[ROUGE-1]')
+        # print('f-measure: {:.3f}'.format(scores['rouge-1']['f']))
+        # print('precision: {:.3f}'.format(scores['rouge-1']['r']))
+        # print('recall: {:.3f}'.format(scores['rouge-1']['p']))
+        # print('\n')
+        #
+        # # FOUR SENTENCES
+        # scores = rouge.get_scores(fours, refs, avg=True)
+        # print('[FOUR SENTENCE ADOPTED EVALUATION]')
+        # print('[ROUGE-1]')
+        # print('f-measure: {:.3f}'.format(scores['rouge-1']['f']))
+        # print('precision: {:.3f}'.format(scores['rouge-1']['r']))
+        # print('recall: {:.3f}'.format(scores['rouge-1']['p']))
+        # print('\n')
+
+        # FIVE SENTENCES
+        scores = rouge.get_scores(fives, refs, avg=True)
+        print('[FIVE SENTENCE ADOPTED EVALUATION]')
+        print('[ROUGE-1]')
+        print('f-measure: {:.3f}'.format(scores['rouge-1']['f']))
+        print('precision: {:.3f}'.format(scores['rouge-1']['r']))
+        print('recall: {:.3f}'.format(scores['rouge-1']['p']))
+        print('\n')
+
+        # # SIX SENTENCES
+        # scores = rouge.get_scores(sixs, refs, avg=True)
+        # print('[SIX SENTENCE ADOPTED EVALUATION]')
+        # print('[ROUGE-1]')
+        # print('f-measure: {:.3f}'.format(scores['rouge-1']['f']))
+        # print('precision: {:.3f}'.format(scores['rouge-1']['r']))
+        # print('recall: {:.3f}'.format(scores['rouge-1']['p']))
+        # print('\n')
 
     def generate_ref_synopsis(self, ncode):
         """
@@ -287,11 +331,31 @@ class KerasRegressionExtractiveSummarizer:
                                                                                            error_line_indexes=data['error_line_indexes']))
         pro_synopsis_lines = removed_contents_lines[np.where(Y_pred > threshold)]
         pro_synopsis = self.corpus.wakati(''.join(pro_synopsis_lines))
-        print('[INFO]: proposed method synopsis generation')
-        print('threshold: {}'.format(threshold))
-        print('max_score: {}'.format(max(Y_pred)))
-        print('\n')
+        # print('[INFO]: proposed method synopsis generation: {}'.format(ncode))
+        # print('threshold: {}'.format(threshold))
+        # print('max_score: {}'.format(max(Y_pred)))
+        # print('\n')
         return pro_synopsis
+
+    def generate_counts_synopsis(self, ncode, max_sentence_count=5):
+        """
+        回帰結果から上位数文選択してあらすじのリストを返す
+        :param max_sentence_count: int
+        :return: list
+        """
+        data = self.data_dict[ncode]
+        Y_pred = self.trained_model.predict(data['X'])
+        Y_pred = np.array(list(chain.from_iterable(Y_pred)))
+
+        contents_lines = self.corpus.get_contents_lines(ncode)
+        removed_contents_lines = np.array(self.corpus.remove_error_line_indexes_from_contents_lines(contents_lines,
+                                                                                           error_line_indexes=data['error_line_indexes']))
+
+        higher_score_indexes = np.argsort(-Y_pred)[:max_sentence_count]
+        higher_score_slices = [np.array(higher_score_indexes[:i+1]) for i in range(len(higher_score_indexes))]
+        synopsises_lines = [removed_contents_lines[indices] for indices in higher_score_slices]
+        synopsises = [self.corpus.wakati(''.join(synopsis)) for synopsis in synopsises_lines]
+        return synopsises
 
     def show_training_process(self):
         """
@@ -328,7 +392,7 @@ class KerasRegressionExtractiveSummarizer:
 if __name__ == '__main__':
     summarizer = KerasRegressionExtractiveSummarizer()
     summarizer.fit()
-    # summarizer.eval()
+    summarizer.eval()
     # summarizer.show_training_process()
     # summarizer.verificate_synopsis_generation()
     # summarizer.generate_synopsis('n0011cx', sentence_count=8, sim_threshold=0.3)
