@@ -7,7 +7,7 @@ from keras.layers.normalization import BatchNormalization
 from keras.optimizers import Adam
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, precision_recall_curve, auc
 import matplotlib.pyplot as plt
 from rouge import Rouge
 import joblib
@@ -36,7 +36,7 @@ class KerasRegressionExtractiveSummarizer:
 
         # DATA
         raw_data_dict = self.data_supplier.multi_feature_and_bin_classified_sentence_data_dict(data_refresh=False)
-        self.data_dict = self.data_screening(raw_data_dict, rouge_lower_limit=0.40)
+        self.data_dict = self.data_screening(raw_data_dict, rouge_lower_limit=0.35)
         self.train_data_ncodes, self.test_data_ncodes = self.ncodes_train_test_split(True)
         self.X_train, self.Y_train = self.data_dict_to_tensor(ncodes=self.train_data_ncodes)
         self.X_train, self.X_validation, self.Y_train, self.Y_validation = train_test_split(self.X_train, self.Y_train, test_size=0.2)
@@ -151,7 +151,30 @@ class KerasRegressionExtractiveSummarizer:
         self.trained_model = model
         self.training_hist = hist
 
-    def eval(self):
+    def eval_pr_curve(self):
+        """
+        precision-recall曲線のAUCを用いてスコア付のモデルの評価を行う
+        """
+        pro_aucs = []
+        lead_aucs = []
+        for ncode in self.test_data_ncodes:
+            # 提案モデルのAUC
+            data = self.data_dict[ncode]
+            y_true = data['Y']
+            pro_y_scores = np.array(list(chain.from_iterable(self.trained_model.predict(data['X']))))
+            pro_precision, pro_recall, _ = precision_recall_curve(y_true, pro_y_scores)
+            pro_auc = auc(pro_recall, pro_precision)
+            pro_aucs.append(pro_auc)
+
+            # 先頭から順に文を採用した場合のAUC
+            lead_y_scores = np.arange(len(data['Y']))
+            lead_precision, lead_recall, _ = precision_recall_curve(y_true, lead_y_scores)
+            lead_auc = auc(lead_recall, lead_precision)
+            lead_aucs.append(lead_auc)
+        print('[PRO AUC] {}'.format(np.mean(pro_aucs)))
+        print('[LEAD AUC] {}'.format(np.mean(lead_aucs)))
+
+    def eval_rouge(self):
         """
         学習済みモデルの評価
         - 平均２乘誤差
@@ -168,16 +191,12 @@ class KerasRegressionExtractiveSummarizer:
         print("[INFO] MEAN SQUARED ERROR : %.4f" % (mse ** 0.5))
 
         # PROPOSED
-        refs = [] # 参照要約
-        opts = [] # 類似度上位から文選択(理論上の上限値)
-        leads = [] # 文章の先頭から数文選択
-        pros = [] # 提案手法要約
-        # ones = [] # 回帰の結果から上位1文取得
-        # twos = [] # 回帰の結果から上位2文取得
-        # threes = [] # 回帰の結果から上位3文取得
-        # fours = [] # 回帰の結果から上位4文取得
-        fives = [] # 回帰の結果から上位5文取得
-        # sixs = [] # 回帰の結果から上位6文取得
+        refs = []               # 参照要約
+        opts = []               # 類似度上位から文選択(理論上の上限値)
+        leads = []              # 文章の先頭からoptの文数分選択
+        pros = []               # 提案手法要約
+        fives = []              # 回帰の結果から上位5文取得
+        same_opt_counts = []    # optのあらすじ文数と同じ文数を採用して生成したあらすじ
 
         for ncode in self.test_data_ncodes:
             ref = self.generate_ref_synopsis(ncode)
@@ -192,13 +211,8 @@ class KerasRegressionExtractiveSummarizer:
             opts.append(opt)
             leads.append(lead)
             pros.append(pro)
-            # ones.append(counts[0])
-            # twos.append(counts[1])
-            # threes.append(counts[2])
-            # fours.append(counts[3])
             fives.append(counts[4])
-            # sixs.append(counts[5])
-
+            same_opt_counts.append(counts[-1])
 
         sys.setrecursionlimit(20000)
         rouge = Rouge()
@@ -229,59 +243,15 @@ class KerasRegressionExtractiveSummarizer:
         print('recall: {:.3f}'.format(scores['rouge-1']['p']))
         print('\n')
 
-        # # ONE SENTENCE
-        # scores = rouge.get_scores(ones, refs, avg=True)
-        # print('[ONE SENTENCE ADOPTED EVALUATION]')
-        # print('[ROUGE-1]')
-        # print('f-measure: {:.3f}'.format(scores['rouge-1']['f']))
-        # print('precision: {:.3f}'.format(scores['rouge-1']['r']))
-        # print('recall: {:.3f}'.format(scores['rouge-1']['p']))
-        # print('\n')
-        #
-        # # TWO SENTENCES
-        # scores = rouge.get_scores(twos, refs, avg=True)
-        # print('[TWO SENTENCE ADOPTED EVALUATION]')
-        # print('[ROUGE-1]')
-        # print('f-measure: {:.3f}'.format(scores['rouge-1']['f']))
-        # print('precision: {:.3f}'.format(scores['rouge-1']['r']))
-        # print('recall: {:.3f}'.format(scores['rouge-1']['p']))
-        # print('\n')
-        #
-        # # THREE SENTENCES
-        # scores = rouge.get_scores(threes, refs, avg=True)
-        # print('[THREE SENTENCE ADOPTED EVALUATION]')
-        # print('[ROUGE-1]')
-        # print('f-measure: {:.3f}'.format(scores['rouge-1']['f']))
-        # print('precision: {:.3f}'.format(scores['rouge-1']['r']))
-        # print('recall: {:.3f}'.format(scores['rouge-1']['p']))
-        # print('\n')
-        #
-        # # FOUR SENTENCES
-        # scores = rouge.get_scores(fours, refs, avg=True)
-        # print('[FOUR SENTENCE ADOPTED EVALUATION]')
-        # print('[ROUGE-1]')
-        # print('f-measure: {:.3f}'.format(scores['rouge-1']['f']))
-        # print('precision: {:.3f}'.format(scores['rouge-1']['r']))
-        # print('recall: {:.3f}'.format(scores['rouge-1']['p']))
-        # print('\n')
-
-        # FIVE SENTENCES
-        scores = rouge.get_scores(fives, refs, avg=True)
-        print('[FIVE SENTENCE ADOPTED EVALUATION]')
+        # SAME OPT COUNTS
+        scores = rouge.get_scores(same_opt_counts, refs, avg=True)
+        print('[SAME OPT SENTENCE ADOPTED EVALUATION]')
         print('[ROUGE-1]')
         print('f-measure: {:.3f}'.format(scores['rouge-1']['f']))
         print('precision: {:.3f}'.format(scores['rouge-1']['r']))
         print('recall: {:.3f}'.format(scores['rouge-1']['p']))
         print('\n')
 
-        # # SIX SENTENCES
-        # scores = rouge.get_scores(sixs, refs, avg=True)
-        # print('[SIX SENTENCE ADOPTED EVALUATION]')
-        # print('[ROUGE-1]')
-        # print('f-measure: {:.3f}'.format(scores['rouge-1']['f']))
-        # print('precision: {:.3f}'.format(scores['rouge-1']['r']))
-        # print('recall: {:.3f}'.format(scores['rouge-1']['p']))
-        # print('\n')
 
     def generate_ref_synopsis(self, ncode):
         """
@@ -307,7 +277,8 @@ class KerasRegressionExtractiveSummarizer:
         """
         本文先頭から正解のあらすじ文と同じ文数選択することによりあらすじを生成
         """
-        sentence_count = len(self.corpus.get_synopsis_lines(ncode))
+        # sentence_count = len(self.corpus.get_synopsis_lines(ncode))
+        sentence_count = len(np.where(self.data_dict[ncode]['Y'] == 1)[0])
         contents_lines = self.corpus.get_contents_lines(ncode)
         lead_synopsis_lines = contents_lines[:sentence_count]
         lead_synopsis = self.corpus.wakati(''.join(lead_synopsis_lines))
@@ -355,6 +326,13 @@ class KerasRegressionExtractiveSummarizer:
         higher_score_slices = [np.array(higher_score_indexes[:i+1]) for i in range(len(higher_score_indexes))]
         synopsises_lines = [removed_contents_lines[indices] for indices in higher_score_slices]
         synopsises = [self.corpus.wakati(''.join(synopsis)) for synopsis in synopsises_lines]
+
+        # 正解のあらすじ文数と同じ文数のあらすじ生成
+        sentence_count = len(np.where(self.data_dict[ncode]['Y'] == 1)[0])
+        higher_score_slice = np.array(higher_score_indexes[:sentence_count])
+        synopsis_line = removed_contents_lines[higher_score_slice]
+        synopsises = np.append(synopsises, self.corpus.wakati(''.join(synopsis_line)))
+
         return synopsises
 
     def show_training_process(self):
@@ -391,8 +369,6 @@ class KerasRegressionExtractiveSummarizer:
 
 if __name__ == '__main__':
     summarizer = KerasRegressionExtractiveSummarizer()
-    summarizer.fit()
-    summarizer.eval()
-    # summarizer.show_training_process()
-    # summarizer.verificate_synopsis_generation()
-    # summarizer.generate_synopsis('n0011cx', sentence_count=8, sim_threshold=0.3)
+    # summarizer.fit()
+    # summarizer.eval()
+    summarizer.eval_pr_curve()
