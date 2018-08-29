@@ -78,7 +78,7 @@ class MultiFeatureAndBinClassifiedSentenceData:
         story_progress = round(sentence_index / all_sentence_count, 5)
         # 台詞か否か
         is_serif = int('「' in sentence)
-        # 固有名詞の数
+        # 人名を含むか否か
         person_name_count = len([morph for morph in morph_info if morph[3]=='人名'])
         # 文字数
         char_count = len(sentence)

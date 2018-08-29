@@ -132,6 +132,22 @@ class NarouCorpus:
         wakati_synopsis_lines = self.get_wakati_lines(synopsis_lines)
         return wakati_synopsis_lines
 
+    def get_morph_info(self, contents_lines):
+        """
+        形態素情報のリストを返す
+        :param contents: str
+        :return: list
+        """
+        contents = ''.join(contents_lines)
+        tagger = MeCab.Tagger('-d /usr/local/lib/mecab/dic/mecab-ipadic-neologd')
+        parsed_contents = tagger.parse(contents)
+        if not parsed_contents:
+            # 長文でパースに失敗した場合など
+            parsed_lines = [tagger.parse(line) for line in contents_lines]
+            morph_lines = list(chain.from_iterable([line.split('\n') for line in parsed_lines]))
+            return [re.split('[\t,]',morph) for morph in morph_lines if morph not in ['', 'EOS']]
+        return [re.split('[\t,]', morph) for morph in parsed_contents.split('\n') if morph not in ['', 'EOS']]
+
     def remove_stop_word(self, sentence):
         """
         文中の名詞、形容詞、動詞、副詞のリストを返却
