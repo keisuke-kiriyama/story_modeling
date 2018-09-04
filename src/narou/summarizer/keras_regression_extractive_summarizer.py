@@ -12,18 +12,23 @@ import matplotlib.pyplot as plt
 from rouge import Rouge
 import joblib
 from itertools import chain
+import click
 
 from src.util import settings
 from src.narou.corpus.multi_feature_and_bin_classified_sentence_data import MultiFeatureAndBinClassifiedSentenceData
 from src.narou.threshold.threshold_estimator import ThresholdEstimator
 
+@click.group()
+def cmd():
+    pass
+
 class KerasRegressionExtractiveSummarizer:
 
-    def __init__(self):
+    def __init__(self, genre, trained_model_path):
         # PATH
-        self.trained_model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'reg_trained_model', '180817','model_26_vloss0.0058.hdf5')
-        self.train_data_ncodes_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'reg_trained_model', 'train_data_ncodes.txt')
-        self.test_data_ncodes_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'reg_trained_model', 'test_data_ncodes.txt')
+        self.trained_model_path = trained_model_path
+        self.train_data_ncodes_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'ncodes', genre, 'train_data_ncodes.txt')
+        self.test_data_ncodes_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'ncodes', genre, 'test_data_ncodes.txt')
 
         # DATA SUPPLIER
         self.data_supplier = MultiFeatureAndBinClassifiedSentenceData()
@@ -37,7 +42,7 @@ class KerasRegressionExtractiveSummarizer:
         # DATA
         raw_data_dict = self.data_supplier.multi_feature_and_bin_classified_sentence_data_dict(data_refresh=False)
         self.data_dict = self.data_screening(raw_data_dict, rouge_lower_limit=0.35)
-        self.train_data_ncodes, self.test_data_ncodes = self.ncodes_train_test_split(True)
+        self.train_data_ncodes, self.test_data_ncodes = self.ncodes_train_test_split(ncode_refresh=False)
         self.X_train, self.Y_train = self.data_dict_to_tensor(ncodes=self.train_data_ncodes)
         self.X_train, self.X_validation, self.Y_train, self.Y_validation = train_test_split(self.X_train, self.Y_train, test_size=0.2)
         self.X_test, self.Y_test = self.data_dict_to_tensor(ncodes=self.test_data_ncodes)
@@ -58,6 +63,9 @@ class KerasRegressionExtractiveSummarizer:
         else:
             self.trained_model = None
         self.training_hist = None
+
+        # PROPERTY
+        self.genre = genre
 
     def data_screening(self, raw_data_dict, rouge_lower_limit):
         """
@@ -140,7 +148,8 @@ class KerasRegressionExtractiveSummarizer:
                                        patience=10)
         checkpoint = ModelCheckpoint(filepath=os.path.join(settings.NAROU_MODEL_DIR_PATH,
                                                            'reg_trained_model',
-                                                           '180822',
+                                                           self.genre,
+                                                           '180904',
                                                            'model_{epoch:02d}_vloss{val_loss:.4f}.hdf5'),
                                      save_best_only=True)
         hist = model.fit(self.X_train, self.Y_train, epochs=epochs,
@@ -223,6 +232,10 @@ class KerasRegressionExtractiveSummarizer:
         print('f-measure: {:.3f}'.format(scores['rouge-1']['f']))
         print('precision: {:.3f}'.format(scores['rouge-1']['r']))
         print('recall: {:.3f}'.format(scores['rouge-1']['p']))
+        print('[ROUGE-2]')
+        print('f-measure: {:.3f}'.format(scores['rouge-2']['f']))
+        print('precision: {:.3f}'.format(scores['rouge-2']['r']))
+        print('recall: {:.3f}'.format(scores['rouge-2']['p']))
         print('\n')
 
         # LEAD EVALUATION
@@ -232,6 +245,10 @@ class KerasRegressionExtractiveSummarizer:
         print('f-measure: {:.3f}'.format(scores['rouge-1']['f']))
         print('precision: {:.3f}'.format(scores['rouge-1']['r']))
         print('recall: {:.3f}'.format(scores['rouge-1']['p']))
+        print('[ROUGE-2]')
+        print('f-measure: {:.3f}'.format(scores['rouge-2']['f']))
+        print('precision: {:.3f}'.format(scores['rouge-2']['r']))
+        print('recall: {:.3f}'.format(scores['rouge-2']['p']))
         print('\n')
 
         # PROPOSED EVALUATION
@@ -241,6 +258,10 @@ class KerasRegressionExtractiveSummarizer:
         print('f-measure: {:.3f}'.format(scores['rouge-1']['f']))
         print('precision: {:.3f}'.format(scores['rouge-1']['r']))
         print('recall: {:.3f}'.format(scores['rouge-1']['p']))
+        print('[ROUGE-2]')
+        print('f-measure: {:.3f}'.format(scores['rouge-2']['f']))
+        print('precision: {:.3f}'.format(scores['rouge-2']['r']))
+        print('recall: {:.3f}'.format(scores['rouge-2']['p']))
         print('\n')
 
         # SAME OPT COUNTS
@@ -250,6 +271,10 @@ class KerasRegressionExtractiveSummarizer:
         print('f-measure: {:.3f}'.format(scores['rouge-1']['f']))
         print('precision: {:.3f}'.format(scores['rouge-1']['r']))
         print('recall: {:.3f}'.format(scores['rouge-1']['p']))
+        print('[ROUGE-2]')
+        print('f-measure: {:.3f}'.format(scores['rouge-2']['f']))
+        print('precision: {:.3f}'.format(scores['rouge-2']['r']))
+        print('recall: {:.3f}'.format(scores['rouge-2']['p']))
         print('\n')
 
 
@@ -302,10 +327,6 @@ class KerasRegressionExtractiveSummarizer:
                                                                                            error_line_indexes=data['error_line_indexes']))
         pro_synopsis_lines = removed_contents_lines[np.where(Y_pred > threshold)]
         pro_synopsis = self.corpus.wakati(''.join(pro_synopsis_lines))
-        # print('[INFO]: proposed method synopsis generation: {}'.format(ncode))
-        # print('threshold: {}'.format(threshold))
-        # print('max_score: {}'.format(max(Y_pred)))
-        # print('\n')
         return pro_synopsis
 
     def generate_counts_synopsis(self, ncode, max_sentence_count=5):
@@ -339,7 +360,7 @@ class KerasRegressionExtractiveSummarizer:
         """
         訓練過程の損失関数の値をプロット
         """
-        loss = summarizer.training_hist.history['val_loss']
+        loss = self.training_hist.history['val_loss']
 
         plt.rc('font', family='serif')
         plt.plot(range(len(loss)), loss,
@@ -367,8 +388,18 @@ class KerasRegressionExtractiveSummarizer:
         input = np.append(input, min)
         return input
 
-if __name__ == '__main__':
-    summarizer = KerasRegressionExtractiveSummarizer()
-    # summarizer.fit()
-    # summarizer.eval()
+@cmd.command()
+@click.option('--genre', '-g', default='general')
+def full(genre):
+    print('[INFO] Genre is {}'.format(genre))
+    trained_model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'reg_trained_model', genre, '180817','model_26_vloss0.0058.hdf5')
+    summarizer = KerasRegressionExtractiveSummarizer(genre, trained_model_path)
+    summarizer.fit()
+    summarizer.eval_rouge()
     summarizer.eval_pr_curve()
+
+def main():
+    cmd()
+
+if __name__ == '__main__':
+    main()

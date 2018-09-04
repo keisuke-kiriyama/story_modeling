@@ -29,7 +29,7 @@ class NarouCorpus:
 
     def load_embedding_model(self):
         print('loading embedding_model...')
-        embedding_model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'narou_embedding.model')
+        embedding_model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'embedding', 'narou_embedding.model')
         return word2vec.Word2Vec.load(embedding_model_path)
 
     def ncode_from_contents_file_path(self, file_path):

@@ -62,7 +62,9 @@ class NarouCorpusNovelData:
         person_distribution:
             { word: count }
         person_distribution:
-                { word: count }
+            { word: count }
+        pronoun_distribution:
+            { word: count }
         verb_distribution:
             { word: count }
         }
@@ -83,8 +85,11 @@ class NarouCorpusNovelData:
         # 地名の出現分布
         place_distribution = self.morph_distribution(morph_info=morph_info, morph_info_index=3, target='地域')
 
-        # 動詞の出現分布
-        verb_distribution = self.morph_distribution(morph_info=morph_info, morph_info_index=1, target='動詞')
+        # 自立動詞の出現分布
+        verb_distribution = self.morph_distribution(morph_info=morph_info, morph_info_index=2, target='自立')
+
+        # 代名詞の出現分布
+        pronoun_distribution = self.morph_distribution(morph_info=morph_info, morph_info_index=2, target='代名詞')
 
         # 文の最大文字数
         max_sentence_length = max([len(line) for line in contents_lines])
@@ -96,6 +101,7 @@ class NarouCorpusNovelData:
             'person_distribution': person_distribution,
             'place_distribution': place_distribution,
             'verb_distribution': verb_distribution,
+            'pronoun_distribution': pronoun_distribution,
             'max_sentence_length': max_sentence_length
         }
 
@@ -130,6 +136,8 @@ class NarouCorpusNovelData:
                     { word: count }
                 place_distribution:
                     { word: count }
+                pronoun_distribution:
+                    { word: count }
                 verb_distribution:
                     { word: count }
                 max_sentence_lentgh: int
@@ -148,4 +156,4 @@ class NarouCorpusNovelData:
 if __name__ == '__main__':
     supplier = NarouCorpusNovelData()
     # supplier.narou_corpus_novel_data(True)
-    print(supplier.create_per_novel_data('n1185df'))
+    print(supplier.create_per_novel_data('n1185df')['pronoun_distribution'])
