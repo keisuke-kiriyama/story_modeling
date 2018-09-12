@@ -199,13 +199,16 @@ class KerasRegressionExtractiveSummarizer:
         mse = mean_squared_error(self.Y_test, Y_pred)
         print("[INFO] MEAN SQUARED ERROR : %.4f" % (mse ** 0.5))
 
-        # PROPOSED
+        # ROUGE
         refs = []               # 参照要約
         opts = []               # 類似度上位から文選択(理論上の上限値)
         leads = []              # 文章の先頭からoptの文数分選択
         pros = []               # 提案手法要約
         fives = []              # 回帰の結果から上位5文取得
         same_opt_counts = []    # optのあらすじ文数と同じ文数を採用して生成したあらすじ
+
+        # COMPRESSION RATIO
+        comp_ratios = []
 
         for ncode in self.test_data_ncodes:
             ref = self.generate_ref_synopsis(ncode)
@@ -222,6 +225,15 @@ class KerasRegressionExtractiveSummarizer:
             pros.append(pro)
             fives.append(counts[4])
             same_opt_counts.append(counts[-1])
+
+            wakati_len = len(counts[-1].replace(' ', ''))
+            contents_len = len(''.join(self.corpus.get_contents_lines(ncode)))
+            cr = wakati_len / contents_len
+            comp_ratios.append(cr)
+        print('compression ratio: {}'.format(np.average(comp_ratios)))
+        return
+
+
 
         sys.setrecursionlimit(20000)
         rouge = Rouge()
@@ -397,6 +409,15 @@ def full(genre):
     summarizer.fit()
     summarizer.eval_rouge()
     summarizer.eval_pr_curve()
+
+@cmd.command()
+@click.option('--genre', '-g', default='general')
+def eval_only(genre):
+    print('[INFO] Genre is {}'.format(genre))
+    trained_model_path = os.path.join(settings.NAROU_MODEL_DIR_PATH, 'reg_trained_model', genre, '180822','model_02_vloss0.0064.hdf5')
+    summarizer = KerasRegressionExtractiveSummarizer(genre, trained_model_path)
+    summarizer.eval_rouge()
+    # summarizer.eval_pr_curve()
 
 def main():
     cmd()
