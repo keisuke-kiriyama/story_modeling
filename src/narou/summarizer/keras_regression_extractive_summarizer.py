@@ -231,9 +231,6 @@ class KerasRegressionExtractiveSummarizer:
             cr = wakati_len / contents_len
             comp_ratios.append(cr)
         print('compression ratio: {}'.format(np.average(comp_ratios)))
-        return
-
-
 
         sys.setrecursionlimit(20000)
         rouge = Rouge()
