@@ -37,7 +37,7 @@ lxml==4.2.1
 Markdown==2.6.11
 matplotlib==2.2.2
 mecab-python3==0.7
-numpy==1.14.3
+numpy==1.22.0
 parsel==1.4.0
 protobuf==3.6.0
 pyasn1==0.4.3
